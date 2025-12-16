@@ -9,6 +9,7 @@ var currentHoverOrder = null;
 var copiedCondition = null;
 var autoSave = false;
 var autoRead = false;
+var displayedTab = "raw";
 var ordersTable = $(".ordersTable")[0];
 var isShiftPressed = false;
 var mustRead = false;
@@ -16,6 +17,9 @@ var mustWrite = false;
 var headerReady = false;
 var allPaused = false;
 var waitForOperation = false;
+var autoFillSource = {};
+var errorCallback;
+var stockReadcompleted = false;
 const PAUSECHANNEL_ALLSTASKS = -2;
 const PAUSECHANNEL_FROMTASK = -1;
 const PAUSECHANNEL_ONETASK = 0;
@@ -25,29 +29,47 @@ const pauseFrom = GetPauseCondition(PAUSECHANNEL_FROMTASK);
 const pauseOne = GetPauseCondition(PAUSECHANNEL_ONETASK);
 var fuses = [];
 var currendFuseInput;
-var compactMode = false;
+var previousSizeMode;
+var removeOptionalRows = false;
+var wantedProduction = {};
 const DELAY_BETWEEN_FILE_OPS_MS = 2500;
 var multiFill = false;
 var editedConditionsOrder;
 var editedConditionsIndex;
 var lastFileAccess;
+var readingStocks = false;
+var isCraftingMaterials = [];
+var boardDisplayedMaterials = [];
+var boardSelectedMaterials = [];
+var boardStaticHeader;
+var boardStaticHeaderCorner;
+var oldStocks;
+var stocks = [];
+var tempStocks = [];
+var stocksMaterials = [];
+var jobs = null;
+var _jobsReady = false;
+var gameInfo = {};
+var sortedItemNames = [];
+var abortInit = false;
 
-setInterval(ReloadCss, 1000);
+var sideA;
+var sideB;
+
+
+setInterval(ReloadCss, 2500);
 setInterval(ReadWriteWatcher, 333);
 
 function cl(msg) { console.log(msg); }
-
-document.addEventListener("keydown", (e) => {
-    if (e.shiftKey)
-        isShiftPressed = true;
-});
 
 document.addEventListener("keyup", (e) => {
     if (!e.shiftKey)
         isShiftPressed = false;
 
-    if (e.ctrlKey) {
-        if (e.key.toLowerCase() == "s") {
+    var key = e.key.toLocaleLowerCase();
+    if (key == "s") {
+        //save
+        if (e.ctrlKey) {
             e.preventDefault();
             if (e.shiftKey) {
                 ToggleAutoSave();
@@ -55,7 +77,10 @@ document.addEventListener("keyup", (e) => {
                 WriteOrders();
             }
         }
-        if (e.key.toLowerCase() == "r") {
+    }
+    if (key == "r") {
+        //read
+        if (e.ctrlKey) {
             e.preventDefault();
             if (e.shiftKey) {
                 ToggleAutoRead();
@@ -63,76 +88,249 @@ document.addEventListener("keyup", (e) => {
                 ReadOrders();
             }
         }
-        if (e.key == " ") {
-            e.preventDefault();
-            if (currentHoverOrder)
-                PauseAllTasksFrom(currentHoverOrder);
+    }
+
+    if (key == " ") {
+        //pause/resume
+        if (e.ctrlKey) {
+            if (currentHoverOrder) {
+                if (e.shiftKey) {
+                    e.preventDefault();
+                    PauseAllTasksFrom(currentHoverOrder);
+                } else {
+                    e.preventDefault();
+                    if (IsTaskPaused(currentHoverOrder, PAUSECHANNEL_ONETASK)) {
+                        ResumeTask(currentHoverOrder, PAUSECHANNEL_ONETASK);
+                    } else {
+                        PauseTask(currentHoverOrder, PAUSECHANNEL_ONETASK);
+                    }
+                    UpdateTable();
+                }
+            }
         }
-        if (e.key == "x") {
+    }
+
+    if (key == "x") {
+        //delete
+        if (e.ctrlKey) {
             e.preventDefault();
             DeleteTask(currentHoverOrder);
         }
-        if (e.key == "c") {
+    }
+    if (key == "z") {
+        //cancel changes
+        if (e.ctrlKey) {
             e.preventDefault();
-            ToggleCompact();
+            CancelChanges()
         }
-        if (e.key == "v") {
-            CreateNewOrder();
-        }
-    } else {
-        if (e.key == " ") {
+    }
+    if (key == "w") {
+        //switch tab
+        if (e.ctrlKey) {
             e.preventDefault();
-            if (currentHoverOrder) {
-                if (IsTaskPaused(currentHoverOrder, PAUSECHANNEL_ONETASK)) {
-                    ResumeTask(currentHoverOrder, PAUSECHANNEL_ONETASK);
-                } else {
-                    PauseTask(currentHoverOrder, PAUSECHANNEL_ONETASK);
-                }
-                UpdateTable();
+            if (displayedTab == "board") {
+                SetTab("stocks");
+            } else {
+                SetTab("board");
             }
         }
+    }
 
+    if (key == "d") {
+        //duplicate
+        if (e.ctrlKey) {
+            if (currentHoverOrder) {
+                e.preventDefault();
+                var newOrder = CreateNewOrder(currentHoverOrder)
+                AddNewOrder(newOrder, currentHoverOrder);
+            }
+        }
+    }
+    if (key == "c") {
+        //create
+        if (e.ctrlKey) {
+            e.preventDefault();
+            EditOrder(CreateNewOrder());
+        }
+    }
+    if (key == "e") {
+        //edit
+        if (e.ctrlKey) {
+            if (currentHoverOrder) {
+                e.preventDefault();
+                EditOrder(currentHoverOrder);
+            }
+        }
+    }
+
+    if (key == "a") {
+        //stop all
+        if (e.ctrlKey) {
+            e.preventDefault();
+            PauseAllTasks();
+        }
+    }
+
+    if (key == "q") {
+        //zoom
+        if (e.ctrlKey) {
+            e.preventDefault();
+            CycleSizeMode()
+        }
+    }
+
+    if (key == "f") {
+        //extra cols
+        if (e.ctrlKey) {
+            e.preventDefault();
+            ToggleOption("lessColumns");
+        }
+    }
+
+    if (key == "g") {
+        //swap tool side
+        if (e.ctrlKey) {
+            e.preventDefault();
+            ToggleOption("toolsSide");
+        }
+    }
+
+    if (key == "escape") {
+        CloseAllPopups();
     }
 });
 
 document.addEventListener("DOMContentLoaded", async (event) => {
-    $("html")[0].addEventListener("click", () => { ClosePopups(); });
     fileHandle = await window.api.GetFileHandle();
+
+    await InitData();
+    /*
     data["items"] = await window.api.GetGameDefs("data/vanilla/vanilla_items/objects/");
     data["materials"] = await window.api.GetGameDefs("data/vanilla/vanilla_materials/objects/");
     data["materials"].push("INORGANIC");
     data["reactions"] = await window.api.GetGameDefs("data/vanilla/vanilla_reactions/objects/");
-
+    
     var itemTypes = data["items"].concat(data["types"]);
     fuses["itemTypes"] = new Fuse(itemTypes);
     fuses["materials"] = new Fuse(data["materials"]);
     fuses["reactions"] = new Fuse(data["reactions"]);
     fuses["flags"] = new Fuse(data["flags"]);
     fuses["types"] = new Fuse(data["types"]);
+    */
 
-    ToggleCompact(true);
-    ClosePopups();
+    boardStaticHeader = $(".boardTableHeader")[0];
+    $("body")[0].addEventListener("mouseup", (e) => { BackgroundClicked() });
+    $("body")[0].addEventListener("keydown", (e) => { OnGeneralKeyDown(e) });
+    $("#boardMaterialsFilter")[0].addEventListener("mouseup", (e) => { e.stopPropagation(); });
+    $(".boardMaterialsPicker")[0].addEventListener("mouseup", (e) => { e.stopPropagation(); });
+    $(".boardBody")[0].addEventListener("scroll", (e) => {
+        boardStaticHeader.style.transform = `translateX(-${e.target.scrollLeft}px)`;
+        boardStaticHeaderCorner ??= $(".boardTableHeader .corner")[0];
+        if (boardStaticHeaderCorner)
+            boardStaticHeaderCorner.style.transform = `translateX(${e.target.scrollLeft}px)`;
+    });
+    sideA = $(".boardBody .itemsSide")[0];
+    sideB = $(".boardBody .valuesSide")[0];
+
     PrepareInput($("input#conditionValue")[0]);
-    ReadOrders();
+    InitStockTable()
+    SetTab("raw");
 });
+
+async function InitData() {
+
+    errorCallback = InitData;
+    await GetGameInfos();
+    if (abortInit)
+        return;
+
+    GetSetBoardSelectedMaterials();
+    if (abortInit)
+        return;
+
+    await ToggleBoardMaterialSelected("!0ALL");
+    if (abortInit)
+        return;
+
+    await CycleSizeMode(true);
+    if (abortInit)
+        return;
+
+    await ToggleOption("lessColumns", true);
+    if (abortInit)
+        return;
+
+    await ReadOrders();
+    if (abortInit)
+        return;
+
+    ReadStocksBatch();
+
+    errorCallback = null;
+}
+
+function CheckError(data) {
+    if (data == null) {
+        //output error to console
+        console.error("No data received from main process.");
+
+
+        PopInfo("Error", "No data received from main process.");
+        return true;
+    }
+    if (data.error != undefined) {
+        PopInfo(data.error.title, data.error.msg, data.context, data.buttons, errorCallback);
+        return true;
+    }
+}
+
+async function GetSetBoardSelectedMaterials(newSelection) {
+    boardSelectedMaterials = await window.api.BoardSelectedMaterials(newSelection);
+    if (CheckError(boardSelectedMaterials))
+        return;
+}
+
+async function GetGameInfos() {
+    gameInfo = await window.api.GetGameInfos();
+    if (CheckError(gameInfo))
+        return;
+
+    sortedItemNames = Object.keys(gameInfo.items).map(key => gameInfo.items[key].name);
+    sortedItemNames.sort((a, b) => {
+        return a.localeCompare(b);
+    });
+    //remove duplicates
+    sortedItemNames = [...new Set(sortedItemNames)];
+
+    Object.keys(gameInfo.reactions).forEach(key => {
+        var reaction = gameInfo.reactions[key];
+        reaction.reagents.forEach(reagent => {
+            reagent.itemName = gameInfo.itemTypes[reagent.itemType] ?? ""
+            reagent.material = gameInfo.materials[reagent.mat_index] ?? ""
+        })
+    });
+}
 
 var propertiesInfos = [
     {
         name: "id",
         displayName: "ID",
         visible: false,
+        numeric: true,
     },
     {
         name: "is_active",
         displayName: "⚙", //gear icon
         visible: true,
         compactable: true,
+        yesno: true,
     },
     {
         name: "is_validated",
         displayName: "✔",
         visible: true,
         compactable: true,
+        yesno: true,
     },
     {
         name: "job",
@@ -166,12 +364,14 @@ var propertiesInfos = [
         displayName: "Left",
         isInput: true,
         visible: true,
+        numeric: true,
     },
     {
         name: "amount_total",
         displayName: "Goal",
         isInput: true,
         visible: true,
+        numeric: true,
     },
     {
         name: "frequency",
@@ -189,6 +389,7 @@ var propertiesInfos = [
         displayName: "Wrk",
         visible: true,
         isInput: true,
+        numeric: true,
     },
 
 ]
@@ -251,17 +452,27 @@ function UpdateTable(forceRedrawConditions = false) {
             var cell = document.createElement("div");
             cell.classList.add("property", "head", prop.name);
             if (prop.compactable)
-                cell.classList.add("comp");
+                cell.classList.add("optionalCol");
+
+            if (prop.numeric)
+                cell.classList.add("num");
+
+            if (prop.yesno)
+                cell.classList.add("yesno");
+
             cell.textContent = prop.displayName;
 
             if (prop.search) {
                 var input = document.createElement("input");
                 input.type = "text";
-                input.classList.add("searchInput", prop.name);
+                input.classList.add("searchInput", prop.name, "autofocus");
                 input.placeholder = "Search...";
                 input.addEventListener("keyup", (e) => {
                     var searchTerm = e.target.value.toLowerCase();
                     FilterJobs(searchTerm);
+                });
+                input.addEventListener("focus", (e) => {
+                    e.target.value = "";
                 });
                 cell.appendChild(input);
             }
@@ -270,7 +481,7 @@ function UpdateTable(forceRedrawConditions = false) {
         });
 
         var toolZone = document.createElement("div");
-        toolZone.classList.add("toolZone");
+        toolZone.classList.add("toolZone", "head");
         newLine.appendChild(toolZone);
 
         headerReady = true;
@@ -303,19 +514,7 @@ function UpdateTable(forceRedrawConditions = false) {
             toolZone.classList.add("toolZone");
             editedLine.appendChild(toolZone);
 
-            var button = document.createElement("button");
-            button.classList.add("rowTool", "btnDelete");
-            button.textContent = "✖";
-            button.addEventListener("click", (e) => {
-                myOrder = GetOrderFromElement(e.currentTarget);
-                DeleteTask(myOrder);
-            });
-            toolZone.appendChild(button);
-
-            button = document.createElement("button");
-            button.classList.add("rowTool", "btnToggleMe");
-            button.textContent = "⏹";
-            button.addEventListener("click", (e) => {
+            button = CreateRowButton(["btnToggleMe"], "⏹", (e) => {
                 myOrder = GetOrderFromElement(e.currentTarget);
                 if (IsTaskPaused(myOrder, PAUSECHANNEL_ONETASK)) {
                     ResumeTask(myOrder, PAUSECHANNEL_ONETASK);
@@ -325,37 +524,25 @@ function UpdateTable(forceRedrawConditions = false) {
                     UpdateTable();
                 }
             });
+            AddKeyInfo(button, "(CTRL+SPACE)");
             toolZone.appendChild(button);
 
-            button = document.createElement("button");
-            button.classList.add("rowTool", "btnStopAllAfter");
-            button.textContent = "⏹⇓";
-            button.addEventListener("click", (e) => {
+            button = CreateRowButton(["btnStopAllAfter"], "⏹⇓", (e) => {
                 myOrder = GetOrderFromElement(e.currentTarget);
                 PauseAllTasksFrom(myOrder);
             });
+            AddKeyInfo(button, "(CTRL+SHIFT+SPACE)");
             toolZone.appendChild(button);
 
-            button = document.createElement("button");
-            button.classList.add("rowTool", "btnDuplicate");
-            button.textContent = "⧉";
-            button.addEventListener("click", (e) => {
+            button = CreateRowButton(["btnDuplicate"], "⧉", (e) => {
                 myOrder = GetOrderFromElement(e.currentTarget);
-                var newOrder = JSON.parse(JSON.stringify(myOrder));
-                newOrder.isNew = true;
-                newOrder.id = orders.reduce((maxId, o) => Math.max(maxId, o.id), 0) + 1;
-                var index = orders.indexOf(myOrder) + 1;
-                orders.splice(index, 0, newOrder);
-                if (autoSave)
-                    MarkForSave();
-                UpdateTable();
+                var newOrder = CreateNewOrder(myOrder)
+                AddNewOrder(newOrder, myOrder);
             });
             toolZone.appendChild(button);
+            AddKeyInfo(button, "(CTRL+D)");
 
-            button = document.createElement("button");
-            button.classList.add("rowTool", "btnMax", "comp");
-            button.textContent = "⇈";
-            button.addEventListener("click", (e) => {
+            button = CreateRowButton(["btnMax", "optionalCol"], "⇈", (e) => {
                 myOrder = GetOrderFromElement(e.currentTarget);
                 orders = orders.filter(o => o.id !== myOrder.id);
                 orders.unshift(myOrder);
@@ -364,12 +551,10 @@ function UpdateTable(forceRedrawConditions = false) {
                     MarkForSave();
                 UpdateTable();
             });
+            AddKeyInfo(button, "(CTRL+V)");
             toolZone.appendChild(button);
 
-            button = document.createElement("button");
-            button.classList.add("rowTool", "btnMin", "comp");
-            button.textContent = "⇊";
-            button.addEventListener("click", (e) => {
+            button = CreateRowButton(["btnMin", "optionalCol"], "⇊", (e) => {
                 myOrder = GetOrderFromElement(e.currentTarget);
                 orders = orders.filter(o => o.id !== myOrder.id);
                 orders.push(myOrder);
@@ -378,6 +563,14 @@ function UpdateTable(forceRedrawConditions = false) {
                     MarkForSave();
                 UpdateTable();
             });
+            AddKeyInfo(button, "(CTRL+B)");
+            toolZone.appendChild(button);
+
+            button = CreateRowButton(["btnDelete"], "✖", (e) => {
+                myOrder = GetOrderFromElement(e.currentTarget);
+                DeleteTask(myOrder);
+            });
+            AddKeyInfo(button, "(CTRL+X)");
             toolZone.appendChild(button);
 
             //place edited line at the right order in parent
@@ -400,6 +593,25 @@ function UpdateTable(forceRedrawConditions = false) {
         } else {
             editedLine.classList.remove("edited");
         }
+
+        if (order.isNew) {
+            editedLine.classList.add("new");
+        } else {
+            editedLine.classList.remove("new");
+        }
+
+        if (order.is_active) {
+            editedLine.classList.add("active");
+        } else {
+            editedLine.classList.remove("active");
+        }
+
+        if (order.is_validated) {
+            editedLine.classList.add("validated");
+        } else {
+            editedLine.classList.remove("validated");
+        }
+
 
         if (order.max_workshops === undefined)
             order.max_workshops = 0;
@@ -424,15 +636,27 @@ function UpdateTable(forceRedrawConditions = false) {
             if (!cell) {
                 cell = document.createElement("div");
                 cell.classList.add("property", property);
+                if (propInfo.numeric) {
+                    cell.classList.add("num");
+                } else {
+                    cell.classList.remove("num");
+                }
+                if (propInfo.yesno) {
+                    cell.classList.add("yesno");
+                } else {
+                    cell.classList.remove("yesno");
+                }
                 editedLine.appendChild(cell);
             }
 
             if (propInfo.compactable)
-                cell.classList.add("comp");
+                cell.classList.add("optionalCol");
 
             if (propInfo.isToggle) {
                 cell.classList.add("toggleable");
-                cell.addEventListener("click", () => {
+                cell.addEventListener("mouseup", (e) => {
+                    e.stopPropagation();
+
                     order[property] = !order[property];
                     if (order[property] === true) {
                         order[property + "_cell"].textContent = "YES";
@@ -447,28 +671,9 @@ function UpdateTable(forceRedrawConditions = false) {
             }
 
             var cellText = order[property];
-            if (property === "material") {
-                if (order["material_category"] != null) {
-                    cellText = order["material_category"].toString();
-                } else {
-                    /*
-                    if (cellText == "INORGANIC")
-                        cellText = "ROCK";
-                    cellText = cellText.replace("INORGANIC:", "");
-                    */
-                }
-                cellText = cellText.toLowerCase();
-                if (cellText.length > 0)
-                    cellText = cellText[0].toUpperCase() + cellText.slice(1);
-            }
 
             if (property == "job") {
-                cellText = order["reaction"] ? order["reaction"] : order["job"];
-                if (cellText.startsWith("Make") && order["item_subtype"] != undefined)
-                    cellText = order["item_subtype"];
-
-                if (cellText == "PrepareMeal")
-                    cellText += " (" + order.meal_ingredients + " ingredients)";
+                cellText = GetOrderJobLabel(order);
 
                 var progressBar = editedLine.querySelector(`.property.${property} .progressBar`);
                 if (!progressBar) {
@@ -480,6 +685,9 @@ function UpdateTable(forceRedrawConditions = false) {
                 progressBar.style.width = ((order.amount_total - order.amount_left) / order.amount_total * 100) + "%";
             }
 
+            if (property === "material") {
+                cellText = GetOrderMaterialLabel(order);
+            }
 
             if (cellText === true) {
                 cellText = "YES";
@@ -495,7 +703,7 @@ function UpdateTable(forceRedrawConditions = false) {
 
                 var input = editedLine.querySelector(`.property.${property} .inputNumber`);
                 if (!input) {
-                    input = CreateInput(InputChangeCallback_PropertyValue, order, property, -1);
+                    input = CreateInputRaw(InputChangeCallback_PropertyValue, order, property, -1);
                     cell.appendChild(input);
                 }
                 input.value = order[property];
@@ -551,7 +759,8 @@ function UpdateTable(forceRedrawConditions = false) {
                         var delButton = document.createElement("button");
                         delButton.classList.add("btnCopy");
                         delButton.textContent = "📋";
-                        delButton.addEventListener("click", (e) => {
+                        delButton.addEventListener("mouseup", (e) => {
+                            e.stopPropagation();
                             CopyCondition(order, conditions.indexOf(condition));
                         });
                         partsHost.appendChild(delButton);
@@ -559,7 +768,8 @@ function UpdateTable(forceRedrawConditions = false) {
                         var delButton = document.createElement("button");
                         delButton.classList.add("btnDelete");
                         delButton.textContent = "✖";
-                        delButton.addEventListener("click", (e) => {
+                        delButton.addEventListener("mouseup", (e) => {
+                            e.stopPropagation();
                             DeleteCondition(order, conditions.indexOf(condition));
                         });
                         partsHost.appendChild(delButton);
@@ -585,7 +795,7 @@ function UpdateTable(forceRedrawConditions = false) {
                         if (key == "value") {
                             var input = editedLine.querySelector(`.property.${property} .conditionsContainer .condition[conditionIndex='${i}'] .conditionPartsHost .conditionPart.cond_value input`);
                             if (!input) {
-                                input = CreateInput(InputChangeCallback_ConditionValue, order, property, i);
+                                input = CreateInputRaw(InputChangeCallback_ConditionValue, order, property, i);
                                 condPartElement.appendChild(input);
                             }
                             condition.value_element = input;
@@ -596,7 +806,12 @@ function UpdateTable(forceRedrawConditions = false) {
                                 condPartElement.textContent = value;
                             }
                             if (mustAddListener)
-                                (function (order, index) { condPartElement.addEventListener("click", (e) => { ShowConditionEditor(order, index); e.stopPropagation(); }); })(order, conditions.indexOf(condition));
+                                (function (order, index) {
+                                    condPartElement.addEventListener("mouseup", (e) => {
+                                        e.stopPropagation();
+                                        ShowConditionEditor(order, index);
+                                    });
+                                })(order, conditions.indexOf(condition));
 
                         }
                     };
@@ -626,7 +841,10 @@ function UpdateTable(forceRedrawConditions = false) {
                     var button = document.createElement("button");
                     button.textContent = "Paste";
                     button.classList.add("btnPaste");
-                    button.addEventListener("click", (e) => { PasteCondition(order); });
+                    button.addEventListener("mouseup", (e) => {
+                        e.stopPropagation();
+                        PasteCondition(order);
+                    });
                     buts.appendChild(button);
                 } else {
                     buts.appendChild(pasteCondButton[0]);
@@ -636,7 +854,10 @@ function UpdateTable(forceRedrawConditions = false) {
                     var button = document.createElement("button");
                     button.textContent = "+";
                     button.classList.add("btnAddCondition");
-                    button.addEventListener("click", (e) => { AddCondition(order); });
+                    button.addEventListener("mouseup", (e) => {
+                        e.stopPropagation();
+                        AddCondition(order);
+                    });
                     buts.appendChild(button);
                 } else {
                     buts.appendChild(addCondButton[0]);
@@ -647,7 +868,7 @@ function UpdateTable(forceRedrawConditions = false) {
 
             } else {
 
-                cell.textContent = cellText;
+                cell.innerHTML = "<div>" + cellText + "</div>";
 
                 if (property == "job") {
                     var progressBar = editedLine.querySelector(`.property.${property} .progressBar`);
@@ -745,7 +966,6 @@ function DeleteCondition(order, conditionIndex) {
 function CopyCondition(order, conditionIndex) {
     copiedCondition = order.item_conditions[conditionIndex];
     conditionJustCopied = true;
-    ClosePopups();
 }
 
 function PasteCondition(order) {
@@ -760,14 +980,10 @@ function PasteCondition(order) {
 }
 
 function ShowConditionEditor(order, conditionIndex) {
-    cl("moncul1");
     if (conditionJustCopied) {
         conditionJustCopied = false;
-        ClosePopups();
-        cl("moncul2");
         return;
     }
-    cl("moncul3");
 
     condition = order.item_conditions[conditionIndex];
     if (!condition)
@@ -775,7 +991,9 @@ function ShowConditionEditor(order, conditionIndex) {
     editedConditionsOrder = order;
     editedConditionsIndex = conditionIndex;
     var editor = $(".conditionEditor")[0];
-    //    editor.querySelector("#itemName").value = condition.item_type ? condition.item_type : "";
+
+    $("#conditionEditorTitle")[0].textContent = GetOrderJobLabel(order) + " : " + GetOrderMaterialLabel(order);
+
     editor.querySelector("#itemType").value = condition.item_subtype ? condition.item_subtype : condition.item_type;
     editor.querySelector("#itemFlag").value = condition.flags ? condition.flags.join(",") : "";
     editor.querySelector("#itemMaterial").value = condition.material ? condition.material : "";
@@ -820,14 +1038,21 @@ async function ReadWriteWatcher() {
         await ReadOrders();
         lastFileAccess = Date.now();
     }
+
+}
+
+function CancelChanges() {
+    orders = [];
+    ReadOrders();
 }
 
 async function ReadOrders() {
     waitForOperation = true;
 
-    $("#openFile")[0].innerHTML = fileHandle ? "READING: <u>" + fileHandle.split("\\").pop().toUpperCase() + "</u>" : "Select orders file";
-
     json = await window.api.ReadFile();
+    if (CheckError(json))
+        return;
+
     if (json == undefined) {
         waitForOperation = false;
         $("body")[0].classList.add("noFileSelected");
@@ -854,7 +1079,7 @@ async function ReadOrders() {
                     if (JSON.stringify(oldLine[prop.name]) != JSON.stringify(matchingNewLine[prop.name])) {
                         oldLine[prop.name] = matchingNewLine[prop.name];
                         if (prop.name === "item_conditions" && editedConditionsOrder != null && editedConditionsOrder.id == oldLine.id)
-                            ClosePopups();
+                            BackgroundClicked();
                     }
                 });
             }
@@ -871,6 +1096,8 @@ async function ReadOrders() {
     } else {
         orders = newOrders;
     }
+
+    UpdateWantedProduction();
 
     UpdateTable();
     waitForOperation = false;
@@ -903,7 +1130,6 @@ async function WriteOrders() {
     clonedOrders.forEach(order => {
         DeleteEmptyKeys(order);
     });
-    cl(clonedOrders);
 
     await window.api.WriteFile(JSON.stringify(clonedOrders, null, 2));
     waitForOperation = false;
@@ -996,7 +1222,6 @@ function ReloadCss() {
 function ToggleAutoSave() {
     autoSave = !autoSave;
     const autoSaveBtn = document.getElementById("autoSave");
-    autoSaveBtn.textContent = `AUTOSAVE: ${autoSave ? "ON" : "OFF"}`;
     autoSaveBtn.classList.toggle("active", autoSave);
 
     if (autoSave)
@@ -1006,13 +1231,10 @@ function ToggleAutoSave() {
 function ToggleAutoRead() {
     autoRead = !autoRead;
     const autoReadBtn = document.getElementById("autoRead");
-    autoReadBtn.textContent = `AUTOREAD: ${autoRead ? "ON" : "OFF"}`;
     autoReadBtn.classList.toggle("active", autoRead);
-
-
 }
 
-function CreateInput(onChangeCallback, orderObject, affectedProperty, conditionIndex = -1) {
+function CreateInputRaw(onChangeCallback, orderObject, affectedProperty, conditionIndex = -1) {
     input = document.createElement("input");
     input.type = "number";
     input.value = conditionIndex > -1 ? orderObject["item_conditions"][conditionIndex].value : orderObject[affectedProperty];
@@ -1040,19 +1262,21 @@ function PrepareInput(input, onChangeCallback) {
             formElements[nextIndex].focus();
         }
     });
-    input
-        .addEventListener("wheel", (e) => {
-            e.preventDefault();
-            var delta = Math.sign(e.deltaY);
-            if (isShiftPressed)
-                delta *= 5;
-            var curVal = e.target.value;
-            curVal = curVal === "" ? 0 : curVal;
-            var newValue = Math.max(0, parseInt(curVal) - delta);
-            e.target.value = newValue;
-            var event = new Event("change");
-            e.target.dispatchEvent(event);
-        });
+    input.addEventListener("mouseup", (e) => {
+        e.stopPropagation();
+    });
+    input.addEventListener("wheel", (e) => {
+        e.preventDefault();
+        var delta = Math.sign(e.deltaY);
+        if (isShiftPressed)
+            delta *= 5;
+        var curVal = e.target.value;
+        curVal = curVal === "" ? 0 : curVal;
+        var newValue = Math.max(0, parseInt(curVal) - delta);
+        e.target.value = newValue;
+        var event = new Event('change');
+        e.target.dispatchEvent(event);
+    });
 
     if (onChangeCallback != null) {
         input.addEventListener("change", (e) => { onChangeCallback(e); });
@@ -1087,7 +1311,8 @@ function InputChangeCallback_ConditionValue(e) {
 function MarkEdited(order) {
     order.edited = true;
     var line = ordersTable.querySelector(`div[orderId='${order.id}']`);
-    line.classList.add("edited");
+    if (line)
+        line.classList.add("edited");
 }
 
 
@@ -1100,7 +1325,6 @@ function GetOrderFromElement(element) {
 function PauseAllTasks() {
     allPaused = !allPaused;
     const pauseAllBtn = document.getElementById("pauseAll");
-    pauseAllBtn.textContent = `PAUSE ALL: ${allPaused ? "ON" : "OFF"}`;
     pauseAllBtn.classList.toggle("active", allPaused);
 
     orders.forEach(order => {
@@ -1177,26 +1401,6 @@ function GetPauseCondition(stopChannel = 0) {
     };
 }
 
-
-
-async function OpenFile() {
-    fileHandle = await window.api.PickFile();
-    if (!fileHandle) {
-        $("body")[0].classList.add("noFileSelected");
-        return;
-    }
-    $("body")[0].classList.remove("noFileSelected");
-    ReadOrders();
-}
-
-function ClosePopups() {
-    var rems = $(".popup")
-    rems.forEach(el => el.remove());
-
-    CloseConditionEditor();
-}
-
-
 function Hide(elements) {
     elements.forEach(el => {
         el.classList.add("hidden");
@@ -1229,7 +1433,7 @@ function SetAutoFill(input, category, allowMultiples) {
     $(".autocompleteList").forEach(el => el.innerHTML = "");
 
     multiFill = allowMultiples;
-    input.setAttribute("category", category);
+    autoFillSource[input.getAttribute("id")] = category;
     currendFuseInput = input;
     if (currendFuseInput != null)
         currendFuseInput.removeEventListener("input", AutoFillFieldChanged);
@@ -1238,9 +1442,11 @@ function SetAutoFill(input, category, allowMultiples) {
 
 function AutoFillFieldChanged(event) {
     var input = event.target;
-    var cat = input.getAttribute("category");
+    var id = input.getAttribute("id");
+    var data = autoFillSource[input.getAttribute("id")];
+    fuses[id] ??= new Fuse(data);
     var tags = input.value.split(",");
-    var results = fuses[cat].search(tags[tags.length - 1].trim());
+    var results = fuses[id].search(tags[tags.length - 1].trim());
     var list = input.nextElementSibling;
     list.innerHTML = "";
     results.slice(0, 10).forEach(result => {
@@ -1248,7 +1454,8 @@ function AutoFillFieldChanged(event) {
         line.classList.add("autocompleteItem");
         line.textContent = result.item;
         list.appendChild(line);
-        line.addEventListener("click", () => {
+        line.addEventListener("mouseup", (e) => {
+            e.stopPropagation();
             if (multiFill && input.value.trim() != "") {
                 input.value += "," + result.item;
             } else {
@@ -1267,26 +1474,28 @@ function AutoFillFieldChanged(event) {
 function CloseAutoFill(input) {
     var category = input.getAttribute("category");
 
-    var tags = input.value.split(",");
-    tags = tags.map(t => t.trim());
-    tags = tags.filter(t => t !== "");
-    tags = [...new Set(tags)];
+    if (input.getAttribute("tagsMode")) {
+        var tags = input.value.split(",");
+        tags = tags.map(t => t.trim());
+        tags = tags.filter(t => t !== "");
+        tags = [...new Set(tags)];
 
-    var validTags = [];
-    if (tags) {
-        tags.forEach(tag => {
-            if (data[category].findIndex(v => v == tag) != -1) {
-                validTags.push(tag);
-                if (!multiFill)
-                    return;
-            }
-        });
+        var validTags = [];
+        if (tags) {
+            tags.forEach(tag => {
+                if (data[category].findIndex(v => v == tag) != -1) {
+                    validTags.push(tag);
+                    if (!multiFill)
+                        return;
+                }
+            });
+        }
+
+        input.value = validTags.join(",");
     }
-
-    input.value = validTags.join(",");
     var event = new Event("change");
     input.dispatchEvent(event);
-    ConditionEdited(input, category);
+
 }
 
 
@@ -1331,22 +1540,22 @@ function CloseConditionEditor() {
     editedConditionsOrder = null;
 }
 
-
-function CreateNewOrder() {
-    if (currentHoverOrder) {
+function CreateNewOrder(orderToDuplicate = null) {
+    var myOrder;
+    if (orderToDuplicate = null) {
         //clone current hover order
-        myOrder = JSON.parse(JSON.stringify(currentHoverOrder));
+        myOrder = JSON.parse(JSON.stringify(orderToDuplicate = null));
         myOrder.isNew = true;
         myOrder.edited = true;
         myOrder.amount_left = myOrder.amount_total;
     } else {
         myOrder = {
-            job: "MakeBucket",
+            job: "",
             amount_left: 10,
             amount_total: 10,
-            material_category: ["Wood"],
+            material_category: [],
             material: "",
-            frequency: "Daily",
+            frequency: "OneTime",
             max_workshops: 0,
             is_active: false,
             is_validated: false,
@@ -1354,31 +1563,39 @@ function CreateNewOrder() {
             edited: true,
         }
     }
-    myOrder.id = orders.reduce((maxId, o) => Math.max(maxId, o.id), 0) + 1;
 
-    if (currentHoverOrder) {
-        //insert after hovered order
-        var index = orders.findIndex(o => o.id === currentHoverOrder.id);
-        orders.splice(index + 1, 0, myOrder);
-    } else {
-        orders.push(myOrder);
-    }
-    if (autoSave)
-        MarkForSave();
-    UpdateTable();
-    MarkEdited(myOrder);
+    return myOrder;
 }
 
-async function ToggleCompact(noSwitch = false) {
-    compactMode = await window.api.ToggleCompactMode(noSwitch);
-    $("#extraCols")[0].textContent = compactMode ? "EXTRA COLS: OFF" : "EXTRA COLS: ON";
-    $("#extraCols")[0].classList.toggle("active", compactMode);
-
-    if (compactMode) {
-        $("body")[0].classList.add("compactMode");
+function AddNewOrder(newOrder, afterOrder = null) {
+    if (afterOrder) {
+        //insert after hovered order (for duplications)
+        var index = orders.findIndex(o => o.id === afterOrder.id);
+        orders.splice(index + 1, 0, newOrder);
     } else {
-        $("body")[0].classList.remove("compactMode");
+        orders.push(newOrder);
     }
+
+    newOrder.id = orders.reduce((maxId, o) => Math.max(maxId, o.id), 0) + 1;
+    MarkEdited(newOrder);
+
+    UpdateTable();
+
+    if (autoSave)
+        MarkForSave();
+
+    //scroll to new order
+    setTimeout(() => {
+        var newLine = ordersTable.querySelector(`div[orderId='${newOrder.id}']`);
+        newLine.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 100);
+}
+
+async function ToggleOption(name, noSwitch = false) {
+    option = await window.api.ToggleOption(name, noSwitch);
+    if (CheckError(option))
+        return;
+    $("body")[0].classList.toggle("option_" + name, option);
 }
 
 
@@ -1398,4 +1615,862 @@ function DeleteTask(order) {
     if (autoSave)
         MarkForSave();
     UpdateTable();
+}
+
+
+
+function SetTab(tab) {
+    displayedTab = tab;
+
+    $("#tabBoard")[0].classList.remove("active");
+    $("#tabRaw")[0].classList.remove("active");
+    $(".boardMode")[0].classList.add("hidden");
+    $(".rawMode")[0].classList.add("hidden");
+
+    switch (tab) {
+        case "board":
+            $("#tabBoard")[0].classList.add("active");
+            $(".boardMode")[0].classList.remove("hidden");
+            break;
+
+        default:
+            $("#tabRaw")[0].classList.add("active");
+            $(".rawMode")[0].classList.remove("hidden");
+            break;
+    }
+}
+
+function BackgroundClicked() {
+
+    switch (displayedTab) {
+        case "board":
+            var picker = $(".boardMaterialsPickerHost")[0];
+            if (!picker.classList.contains("hidden")) {
+                picker.classList.add("hidden");
+            } else {
+                $(".boardTableHeader .corner input")[0].value = ''
+                $(".boardTableHeader .corner input")[0].focus();
+                UpdateBoardItemFilter('');
+            }
+            break;
+
+        case "raw":
+            var searchInput = $(".ordersTable .searchInput")[0];
+            if (searchInput) {
+                searchInput.focus();
+                FilterJobs("");
+            }
+            break;
+
+    }
+}
+
+async function CycleSizeMode(noChange) {
+    if (previousSizeMode != undefined) {
+        $("body")[0].classList.remove("sizemode_" + previousSizeMode);
+    }
+    var size = await window.api.CycleSizeMode(noChange);
+    if (CheckError(size))
+        return;
+
+    $("body")[0].classList.add("sizemode_" + size);
+    previousSizeMode = size;
+}
+
+function CreateRowButton(classes, text, callback) {
+    var buttonHost = document.createElement("button");
+    buttonHost.classList.add("rowTool");
+    classes.forEach(c => buttonHost.classList.add(c));
+
+    var button = document.createElement("div");
+    button.textContent = text;
+    buttonHost.appendChild(button);
+
+    buttonHost.addEventListener("mouseup", (e) => {
+        e.stopPropagation();
+        callback(e)
+    });
+
+    return buttonHost;
+}
+
+function GetOrderJobLabel(order) {
+    var text = order["reaction"] ? order["reaction"] : order["job"];
+    if (text.startsWith("Make") && order["item_subtype"] != undefined)
+        text = order["item_subtype"];
+
+    if (text == "PrepareMeal")
+        text += " (" + order.meal_ingredients + " ingredients)";
+
+    return text;
+}
+
+function GetOrderMaterialLabel(order) {
+    var text = "";
+    if (order["material_category"] != null) {
+        text = order["material_category"].toString();
+    } else {
+        text = order["material"];
+    }
+    text = text.toLocaleLowerCase();
+    text = text.replace("native_", "");
+    text = text.replace("inorganic:", "");
+    text = text.replace("inorganic", "Rock (Inorganic)");
+
+    return text;
+}
+
+
+
+function ChangeWantedProduction(e) {
+    /*
+    var item = e.target.getAttribute("itemType");
+    var mat = e.target.getAttribute("material");
+    if (!wantedProduction[item])
+        wantedProduction[item] = {};
+    wantedProduction[item][mat] = parseInt(e.target.value);
+    var cell = e.target.closest(".boardCell");
+    cell.setAttribute("totalVal", (stocks[item][mat] ? stocks[item][mat] : 0) + wantedProduction[item][mat]);
+    */
+}
+
+
+function ItemLabelNoGroup(itemName) {
+    itemName = itemName.replace("ITEM_", "");
+    itemName = itemName.replace(/_/g, " ");
+    itemName = itemName.split(":")
+    return itemName[itemName.length - 1];
+}
+
+function ItemLabelGroup(itemName) {
+    itemName = itemName.replace("ITEM_", "");
+    itemName = itemName.replace(/_/g, " ");
+    return itemName;
+}
+
+async function ReadJobsBatch() {
+    if (readingStocks)
+        return;
+
+    readingStocks = true;
+    await window.api.GetJobsInfos().then((data) => {
+
+        if (data == null) {
+            cl("error: null data");
+            _jobsReady = true;
+        } else if (jobs == null) {
+            jobs = data;
+        } else {
+            data.jobs.forEach(job => {
+                jobs.jobs.push(job);
+            });
+        }
+        if (data.completed) {
+            _jobsReady = true;
+            jobs = jobs.jobs;
+
+            jobs.forEach(job => {
+                job.reaction = gameInfo.reactions[job.reactionName];
+                job.jobTypeName = gameInfo.job_type[job.jobType];
+                job.mat_name = gameInfo.materials[job.mat_index] != null ? gameInfo.materials[job.mat_index] : "";
+                if (job.reaction != null) {
+                    if (job.reaction.products != null) {
+                        job.reaction.products.forEach(prod => {
+                            prod.itemTypeName = gameInfo.itemTypes[prod.itemType] || "ANY";
+                        });
+                    }
+                    if (job.reaction.reagents != null) {
+                        job.reaction.reagents.forEach(reagent => {
+                            reagent.itemTypeName = gameInfo.itemTypes[reagent.itemType] || "ANY";
+                            reagent.flags = [];
+                        });
+                    }
+                }
+            });
+        }
+
+    }).catch((err) => {
+
+        cl("error reading jobs: " + err);
+        readingStocks = false;
+        _jobsReady = true;
+
+    }).finally(() => {
+
+        readingStocks = false;
+    });
+}
+
+async function ReadStocksBatch() {
+    if (readingStocks)
+        return;
+
+    readingStocks = true;
+    await window.api.GetStocks().then((data) => {
+        Object.keys(data.stocks).forEach(key => {
+            var itemName = key.split("@")[0];
+            var matName = key.split("@")[1];
+            var quantity = data.stocks[key];
+            tempStocks[itemName] ??= {};
+            tempStocks[itemName][matName] = quantity;
+        });
+
+        if (data.completed) {
+            stockReadcompleted = true;
+        };
+    }).finally(() => {
+        readingStocks = false;
+
+        if (!stockReadcompleted) {
+            setTimeout(() => {
+                ReadStocksBatch();
+            }, 100);
+        } else {
+            stockReadcompleted = false
+            stocksMaterials = [];
+            stockArray = []
+            for (const item in tempStocks) {
+                stockArray.push({ item: item, mats: tempStocks[item] });
+            }
+            stockArray.sort((a, b) => {
+                return ItemLabelGroup(a.item).localeCompare(ItemLabelGroup(b.item));
+            });
+
+            ClearGeneralStocks();
+
+            stockArray.forEach(obj => {
+                ProcessStockLine(obj.item, obj.mats);
+            });
+
+            FinalizeStock();
+
+            ApplyBoardMaterialFilters()
+            tempStocks = {};
+            setTimeout(() => {
+                ReadStocksBatch();
+            }, 100);
+
+        }
+    });
+}
+
+function FinalizeStock() {
+    if (oldStocks == null)
+        oldStocks = {};
+    
+    Object.keys(stocks).forEach(item => {
+        stock = stocks[item];
+        if (oldStocks[item] == null)
+            oldStocks[item] = {};
+
+        Object.keys(stock).forEach(mat => {
+            if (oldStocks[item][mat] == null)
+                oldStocks[item][mat] = 0;
+
+            var diff = stock[mat] - oldStocks[item][mat];
+            if (diff != 0) {
+                cl(diff)
+                var cell = GetStockCell(item, mat);
+                FlashCellChange(cell, diff);
+            }
+            oldStocks[item][mat] = stock[mat];
+
+        });
+    });
+}
+
+function ClearGeneralStocks() {
+    if (stocksMaterials.indexOf("!0ALL") == -1)
+        stocksMaterials.push("!0ALL");
+    if (stocksMaterials.indexOf("!1WOODLOG") == -1)
+        stocksMaterials.push("!1WOODLOG");
+    if (stocksMaterials.indexOf("!2ROCKMETAL") == -1)
+        stocksMaterials.push("!2ROCKMETAL");
+    if (stocksMaterials.indexOf("!3BONES") == -1)
+        stocksMaterials.push("!3BONES");
+    if (stocksMaterials.indexOf("!4LEATHER") == -1)
+        stocksMaterials.push("!4LEATHER");
+    if (stocksMaterials.indexOf("!5PLANTS") == -1)
+        stocksMaterials.push("!5PLANTS");
+
+    Object.keys(stocks).forEach(key => {
+        var matList = stocks[key];
+        matList["!0ALL"] = 0;
+        matList["!1WOODLOG"] = 0;
+        matList["!2ROCKMETAL"] = 0;
+        matList["!3BONES"] = 0;
+        matList["!4LEATHER"] = 0;
+        matList["!5PLANTS"] = 0;
+    });
+}
+
+function ProcessStockLine(item, matsQtts) {
+
+    var newInfo = false;
+
+    if (!stocks[item]) {
+        stocks[item] = {}
+        newInfo = true;
+    }
+
+    Object.keys(matsQtts).forEach(mat => {
+
+        qtt = matsQtts[mat];
+
+        if (!stocks[item][mat]) {
+            stocks[item][mat] = 0;
+            newInfo = true;
+        }
+        if (!stocks[item]["!0ALL"]) {
+            stocks[item]["!0ALL"] = 0;
+            newInfo = true;
+        }
+
+        if (stocksMaterials.indexOf(mat) == -1)
+            stocksMaterials.push(mat);
+
+        var oldStock = stocks[item][mat];
+
+        stock = stocks[item];
+        stock[mat] = qtt;
+        stock["!0ALL"] += qtt;
+
+        var matCell = GetStockCell(item, mat);
+
+        var group = ""
+        if (mat.endsWith(":WOOD")) {
+            group = "!1WOODLOG";
+        } else if (mat.startsWith("INORGANIC:")) {
+            group = "!2ROCKMETAL";
+        } else if (mat.endsWith(":BONE")) {
+            group = "!3BONES";
+        } else if (mat.endsWith(":LEATHER")) {
+            group = "!4LEATHER";
+        } else if (mat.startsWith("PLANT:")) {
+            group = "!5PLANTS";
+        }
+
+        if (group != "") {
+            newInfo = false
+            if (!stock[group]) {
+                stock[group] = 0;
+                newInfo = true;
+            }
+
+            stock[group] = qtt;
+        }
+    });
+}
+
+function CreateEmptyStocksCells() {
+    Object.keys(stocks).forEach(item => {
+        stocksMaterials.forEach(mat => {
+            if (boardSelectedMaterials.indexOf(mat) == -1)
+                return;
+            GetStockCell(item, mat);
+        });
+    });
+}
+
+
+function GetStockCell(item, mat) {
+    var total = stocks[item]["!0ALL"] + WantedProduction(item, null);
+
+    //side header
+    var itemIndex = Object.keys(stocks).indexOf(item);
+    var myLabel = sideA.querySelector(".itemType[item='" + item + "']");
+    if (!myLabel) {
+        myLabel = document.createElement("div");
+        myLabel.classList.add("boardCell", "itemType");
+        myLabel.textContent = ItemLabelNoGroup(item);
+        myLabel.setAttribute("item", item.toUpperCase());
+
+        myLabel.style.order = itemIndex
+        sideA.appendChild(myLabel);
+    }
+    myLabel.setAttribute("totalVal", total)
+
+    var tableHeader = $(".boardTableHeader")[0];
+    var header = tableHeader.querySelector(`.header[material='${mat}']`);
+
+    //is mat to display?
+    var index = boardSelectedMaterials.indexOf(mat)
+    if (!header) {
+        header = document.createElement("div");
+        header.classList.add("boardCell", "header");;
+        header.setAttribute("material", mat);
+        header.innerHTML = DisplayableMaterialName(mat);
+        boardStaticHeader.appendChild(header);
+
+        tableHeader.appendChild(header);
+    }
+    header.style.order = index;
+
+    var myMatCol = sideB.querySelector(".materialCol[material='" + mat + "']");
+    //mat col
+    if (!myMatCol) {
+        myMatCol = document.createElement("div");
+        myMatCol.classList.add("boardCol", "materialCol");
+        myMatCol.setAttribute("material", mat);
+        sideB.appendChild(myMatCol);
+
+    }
+    myMatCol.style.order = boardSelectedMaterials.indexOf(mat);
+
+    var matCell = myMatCol.querySelector(`.boardCell[item='${item}']`);
+    if (!matCell) {
+        matCell = document.createElement("div");
+        matCell.classList.add("boardCell", "editable");
+        matCell.setAttribute("item", item);
+        var stockDiv = document.createElement("div");
+        stockDiv.classList.add("stock");
+        matCell.appendChild(stockDiv);
+
+        myMatCol.appendChild(matCell);
+    }
+    matCell.style.order = itemIndex
+
+    var stocked = 0;
+    if (stocks[item] && stocks[item][mat])
+        stocked = stocks[item][mat];
+
+    matCell.setAttribute("totalVal", stocked + WantedProduction(item, mat));
+
+    var stockDiv = matCell.querySelector("div.stock");
+    stockDiv.textContent = GetKiloValue(stocked);
+
+    return matCell;
+}
+
+function InitStockTable() {
+    var body = $(".boardBody")[0];
+
+
+    //create corner cell
+    var cornerDiv = $(".boardTableHeader .itemType.corner")[0];
+    if (!cornerDiv) {
+        cornerDiv = document.createElement("div");
+        cornerDiv.classList.add("boardCell", "itemType", "corner");
+
+        var input = document.createElement("input");
+        //add event listeners for focus and change
+        input.addEventListener("focus", (e) => { e.target.value = ''; UpdateBoardItemFilter(''); });
+        input.addEventListener("mouseup", (e) => {
+            e.stopPropagation();
+            e.target.value = ''; UpdateBoardItemFilter('');
+        });
+        input.addEventListener("change", (e) => { UpdateBoardItemFilter(e.target.value); });
+        input.addEventListener("keyup", (e) => { UpdateBoardItemFilter(e.target.value); });
+        input.setAttribute("placeholder", "Item ▼");
+        input.classList.add("autofocus");
+        cornerDiv.appendChild(input);
+
+        var button = document.createElement("button");
+        button.addEventListener("mouseup", (e) => {
+            e.stopPropagation();
+            UpdateBoardMaterialsPicker();
+            $(".boardMaterialsPickerHost")[0].classList.remove("hidden");
+            var input = $(".boardMaterialsPickerHost input")[0];
+            input.value = '';
+            input.focus();
+            var event = new Event("change");
+            input.dispatchEvent(event);
+        });
+        button.textContent = "Materials ►";
+        cornerDiv.appendChild(button);
+
+        boardStaticHeader.appendChild(cornerDiv);
+    }
+}
+
+function AddBoardCellInput(cell, itemName, mat, onChangeCallback) {
+    input = document.createElement("input");
+    input.type = "number";
+    input.classList.add("inputNumber", "wanted");
+    input.setAttribute("itemType", itemName);
+    input.setAttribute("material", mat);
+    input.value = wantedProduction[itemName] ? wantedProduction[itemName][mat] ? wantedProduction[itemName][mat] : 0 : 0;
+    PrepareInput(input, onChangeCallback);
+    cell.appendChild(input);
+}
+
+function FlashCellChange(cell, diff) {
+    if (!cell)
+        return;
+    if (diff > 0) {
+        cell.classList.add("popUp");
+    } else if (diff < 0) {
+        cell.classList.add("popDown");
+    }
+
+    setTimeout(() => {
+        const c = cell;
+        c.classList.remove("popUp");
+        c.classList.remove("popDown");
+    }, 500);
+}
+
+function UpdateBoardMaterialsPicker() {
+    var picker = $(".boardMaterialsPicker")[0];
+
+    stocksMaterials.forEach(mat => {
+        if (!IsCraftingMaterial(mat))
+            return;
+
+        var option = picker.querySelector(`button.materialOption[material='${mat}']`);
+        if (!option) {
+            option = document.createElement("button");
+            option.classList.add("materialOption");
+            option.setAttribute("material", mat);
+            option.addEventListener("mouseup", (e) => {
+                e.stopPropagation();
+                ToggleBoardMaterialSelected(e.currentTarget.getAttribute("material"));
+            });
+
+            var labelPreDiv = document.createElement("div");
+            var labelDiv = document.createElement("div");
+            labelDiv.classList.add("label");
+            labelDiv.innerHTML = DisplayableMaterialName(mat);
+            labelPreDiv.appendChild(labelDiv);
+
+            option.appendChild(labelPreDiv);
+
+            picker.appendChild(option);
+        }
+
+        if (boardSelectedMaterials.includes(mat)) {
+            option.classList.add("selected");
+        } else {
+            option.classList.remove("selected");
+        }
+    });
+
+    allOptions = picker.querySelectorAll(".materialOption");
+    allOptions.forEach(option => {
+        var mat = option.getAttribute("material");
+        if (stocksMaterials.indexOf(mat) == -1) {
+            //remove option
+            option.remove();
+        }
+    });
+
+    SortBoardPicker();
+}
+
+async function ToggleBoardMaterialSelected(mat) {
+    var option = $(".boardMaterialsPicker .materialOption[material='" + mat + "']")[0];
+
+    var change = false;
+    if (boardSelectedMaterials.indexOf(mat) == -1) {
+        boardSelectedMaterials.push(mat);
+        change = true;
+        if (option)
+            option.classList.add("selected");
+    } else {
+        if (mat != "!0ALL") {
+            boardSelectedMaterials = boardSelectedMaterials.filter(m => m != mat);
+            change = true;
+            if (option)
+                option.classList.remove("selected");
+        }
+    }
+
+    if (change) {
+        GetSetBoardSelectedMaterials(boardSelectedMaterials);
+        SortBoardPicker();
+        ApplyBoardMaterialFilters()
+    }
+}
+
+function ApplyBoardMaterialFilters() {
+    $(".boardTable .materialCol").forEach(cell => {
+        var mat = cell.getAttribute("material");
+        if (boardSelectedMaterials.includes(mat)) {
+            cell.classList.remove("hidden");
+        } else {
+            cell.classList.add("hidden");
+        }
+    });
+    $(".boardTableHeader .boardCell.header").forEach(cell => {
+        var mat = cell.getAttribute("material");
+        if (boardSelectedMaterials.includes(mat)) {
+            cell.classList.remove("hidden");
+        } else {
+            cell.classList.add("hidden");
+        }
+
+        cell.style.order = boardSelectedMaterials.indexOf(mat);
+    });
+    CreateEmptyStocksCells()
+
+    UpdateBoardItemFilter();
+}
+
+
+function ClearMatName(mat) {
+    return mat.replace(/ /g, "_");
+}
+
+function IsCraftingMaterial(mat) {
+    if (!isCraftingMaterials[mat])
+        isCraftingMaterials[mat] = mat.startsWith("!") || mat.startsWith("INORGANIC:") || mat.startsWith("GLASS") || mat.endsWith(":WOOD") || mat.endsWith(":BONE") || mat.endsWith(":LEATHER");
+
+    return isCraftingMaterials[mat];
+}
+
+function DisplayableMaterialName(mat) {
+    mat = mat.replace("CREATURE:", "");
+    if (mat.startsWith("INORGANIC:")) {
+        mat = mat.replace("INORGANIC:", "");
+        mat += " <span>(Rock/Metal)</span><span class='tag inorganic'>Rock/Metal</span>";
+    }
+    if (mat.endsWith(":WOOD")) {
+        mat = mat.replace(":WOOD", " <span>(Log)</span><span class='tag wood'></span>");
+        mat = mat.replace("PLANT:", "");
+    } else {
+        mat = mat.replace("PLANT:", " <span>(Plant)</span><span class='tag plant'>Plant</span> ");
+    }
+    mat = mat.replace(":BONE", " <span>(Bone)</span><span class='tag bone'>Bone</span>");
+    mat = mat.replace(":LEATHER", " <span>(Leather)</span><span class='tag leather'>Leather</span>");
+
+    mat = mat.replace("!0ALL", "<b>Total</b>");
+    mat = mat.replace("!1WOODLOG", "<b>Wood/Logs</b>");
+    mat = mat.replace("!2ROCKMETAL", "<b>Rock/Metal</b>");
+    mat = mat.replace("!3BONES", "<b>Bone</b>");
+    mat = mat.replace("!4LEATHER", "<b>Leather</b>");
+    mat = mat.replace("!5PLANTS", "<b>Plants</b>");
+    /*
+    mat = mat.replace("!0INORGANIC", "Any <b>Rock</b>");
+    mat = mat.replace("!1WOOD", "Any <b>Wood</b>");
+    mat = mat.replace("!2LEATHER", "Any <b>Leather</b>");
+    mat = mat.replace("!3CLOTH", "Any <b>Cloth</b>");
+    mat = mat.replace("!4BONE", "Any <b>Bone</b>");
+    */
+    mat = mat.replace(/_/g, " ");
+    return mat;
+}
+
+function GetKiloValue(value) {
+    value = parseInt(value);
+
+    var unit = "";
+    /*
+    if (value >= 1000000) {
+        value = (value / 1000000).toFixed(2);
+        unit = "M";
+    } else if (value >= 1000) {
+        value = (value / 1000).toFixed(2);
+        unit = "K";
+    } else {
+        return value.toString();
+    }
+    */
+    //format to add commas
+    value = value.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+
+    return value + unit;
+}
+
+function BoardMaterialsFilterChanged(filterValue) {
+    $(".boardMaterialsPicker .materialOption").forEach(option => {
+        var mat = option.textContent.toLowerCase();
+        var words = filterValue.toLowerCase().split(" ");
+
+        if (filterValue == '') {
+            option.classList.remove("hidden");
+        } else {
+            if (words.every(word => mat.includes(word))) {
+                option.classList.remove("hidden");
+            } else
+                option.classList.add("hidden");
+        }
+    });
+    SortBoardPicker();
+}
+
+function SortBoardPicker() {
+    //sort elements by .selcted
+    var picker = $(".boardMaterialsPicker")[0];
+    var options = Array.from(picker.querySelectorAll(".materialOption"));
+    options.sort((a, b) => {
+        var aSelected = a.classList.contains("selected") ? 0 : 1;
+        var bSelected = b.classList.contains("selected") ? 0 : 1;
+        return aSelected - bSelected || SortableMaterialName(a.getAttribute("material")).localeCompare(SortableMaterialName(b.getAttribute("material")));
+    });
+
+    var i = 0;
+    options.forEach(option => {
+        option.style.order = i;
+        i++;
+    });
+}
+
+function UpdateBoardItemFilter(search) {
+    var itemCells = $(".boardCell[item]");
+    itemCells.forEach(cell => {
+        var itemName = cell.getAttribute("item").toLowerCase();
+        if (!search || search == '' || itemName.includes(search.toLowerCase())) {
+            cell.classList.remove("hidden");
+        } else {
+            cell.classList.add("hidden");
+        }
+    });
+}
+
+function EditOrder(order) {
+    $(".orderEditor")[0].classList.remove("hidden");
+    editedOrder = order;
+
+}
+
+function OrderEdited(elem) {
+    var input = elem;
+}
+
+function WantedProduction(item, mat) {
+    return 0;
+    /*
+    if (wantedProduction[item] && wantedProduction[item][mat])
+        return wantedProduction[item][mat];
+    */
+}
+
+
+function UpdateWantedProduction() {
+    wantedProduction = {};
+    /*
+    orders.forEach(order => {
+        var jobTypeName = order.job;
+        var job = jobs.find(j => j.jobTypeName === jobTypeName);
+        if (job.reaction) {
+            if (job.reaction.products) {
+                job.reaction.products.forEach(prod => {
+                    var itemTypeName = prod.itemTypeName;
+                });
+            }
+        }
+ 
+    });
+    */
+}
+
+
+function OnGeneralKeyDown(e) {
+    if (e.shiftKey)
+        isShiftPressed = true;
+
+    if ($(".conditionEditor:not(.hidden)")[0])
+        return;
+    if ($(".orderEditor:not(.hidden)")[0])
+        return;
+    if (document.activeElement && document.activeElement.tagName === "INPUT" || document.activeElement.tagName === "TEXTAREA")
+        return;
+
+    if (!e.ctrlKey) {
+        var searchers = $("input.autofocus");
+        //convert searchers to array
+        searchers = Array.from(searchers);
+        //filter out element with offsetParent null (not visible)
+        searchers = searchers.filter(s => s.offsetParent !== null);
+        if (searchers.length > 0) {
+            searchers.sort(CompareDepth);
+            searchers[0].focus();
+            searchers[0].select();
+        }
+    }
+}
+
+function CompareDepth(a, b) {
+    if (a === b)
+        return 0;
+
+    var position = a.compareDocumentPosition(b);
+
+    if (position & Node.DOCUMENT_POSITION_FOLLOWING || position & Node.DOCUMENT_POSITION_CONTAINED_BY) {
+        return -1;
+    } else if (position & Node.DOCUMENT_POSITION_PRECEDING || position & Node.DOCUMENT_POSITION_CONTAINS) {
+        return 1;
+    } else {
+        return 0;
+    }
+}
+
+function PopInfo(title, message, sub, buttons = null, closeCallback = null) {
+
+    abortInit = true;
+
+    var infoBox = document.createElement("div");
+    infoBox.classList.add("infoBox");
+    infoBox.innerHTML = `<div class='window'><div class='title'></div><div class='context'></div><div class='message'></div><div class='buttons'></div></div>`;
+    infoBox.querySelector(".title").textContent = title;
+    infoBox.querySelector(".message").innerHTML = message;
+    cl(buttons);
+    if (buttons) {
+        buttons.forEach(btn => {
+            var button = document.createElement("button");
+            button.textContent = btn;
+            switch (btn) {
+                case "RESET APP PATHS":
+                    cl("reset app paths");
+                    errorCallback = null;
+                    button.addEventListener("click", (e) => {
+                        e.stopPropagation();
+                        ResetAppPaths();
+                        document.querySelector(".infoBox").remove();
+                    });
+                    break;
+            }
+            infoBox.querySelector(".buttons").appendChild(button);
+        });
+    }
+    infoBox.querySelector(".context").innerHTML = sub;
+    $("body")[0].appendChild(infoBox);
+
+    setTimeout(() => {
+        infoBox.addEventListener("click", () => {
+            const box = infoBox;
+            //remove infobox
+            box.remove();
+            if (closeCallback)
+                closeCallback();
+        });
+    }, 500);
+}
+
+function ResetAppPaths() {
+    window.api.ResetAppPaths();
+};
+
+
+function AddKeyInfo(button, string) {
+
+    var keyInfo = button.querySelector("span.keyInfo")
+    if (!keyInfo) {
+        keyInfo = document.createElement("span");
+        keyInfo.classList.add("keyInfo");
+        button.appendChild(keyInfo);
+    }
+    keyInfo.textContent = string;
+}
+
+function CloseAllPopups() {
+    $(".infoBox").forEach(box => box.remove());
+    $(".boardMaterialsPickerHost")[0].classList.add("hidden");
+    $(".conditionEditor")[0].classList.add("hidden");
+    $(".orderEditor")[0].classList.add("hidden");
+}
+
+function SortableMaterialName(mat) {
+    if (mat.endsWith(":WOOD")) {
+        mat = "1WOOD:" + mat;
+    } else if (mat.startsWith("INORGANIC:")) {
+        mat = "2" + mat;
+    } else if (mat.endsWith(":BONE")) {
+        mat = "3BONE:" + mat;
+    } else if (mat.endsWith(":LEATHER")) {
+        mat = "4LEATHER:" + mat;
+    } else if (mat.startsWith("PLANT:")) {
+        mat = "5" + mat
+    }
+    return mat;
 }

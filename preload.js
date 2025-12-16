@@ -1,11 +1,14 @@
 const { contextBridge, ipcRenderer } = require("electron");
 
 contextBridge.exposeInMainWorld("api", {
-    PickFile: () => ipcRenderer.invoke("PickFile"),
-    PopError: (title, msg) => ipcRenderer.invoke("PopError", { title, msg }),
     ReadFile: () => ipcRenderer.invoke("ReadFile"),
-    GetGameDefs: (path) => ipcRenderer.invoke("GetGameDefs", path),
+    GetGameInfos: () => ipcRenderer.invoke("GetGameInfos"),
     GetFileHandle: () => ipcRenderer.invoke("GetFileHandle"),
     WriteFile: (content) => ipcRenderer.invoke("WriteFile", content),
-    ToggleCompactMode: (noSwitch) => ipcRenderer.invoke("ToggleCompactMode", noSwitch),
+    ToggleOption: (name, noChange) => ipcRenderer.invoke("ToggleOption", name, noChange),
+    CycleSizeMode: (noChange) => ipcRenderer.invoke("CycleSizeMode", noChange),
+    GetStocks: () => ipcRenderer.invoke("GetStocks"),
+    GetJobsInfos: () => ipcRenderer.invoke("GetJobsInfos"),
+    BoardSelectedMaterials: (newMaterials) => ipcRenderer.invoke("BoardSelectedMaterials", newMaterials),
+    ResetAppPaths: () => ipcRenderer.invoke("ResetAppPaths")
 });

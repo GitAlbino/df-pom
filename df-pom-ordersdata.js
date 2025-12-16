@@ -132,7 +132,6 @@ data["types"] = [
     "SHEET",
     "BRANCH",
     "BOLT_THROWER_PARTS",
-
 ];
 
 data["flags"] = [

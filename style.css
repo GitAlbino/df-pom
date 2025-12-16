@@ -4,13 +4,46 @@ html {
 }
 
 * {
+    position: relative;
     box-sizing: border-box;
     margin: 0;
     padding: 0;
+
+    &:focus-visible {
+        outline: none;
+    }
+
+    &:hover {
+        &>.keyInfo {
+            transition: opacity 1.3s linear(0, 0, 0, 1);
+            opacity: 1;
+        }
+    }
+}
+
+.keyInfo {
+    position: absolute;
+    z-index: 100;
+    right: 100%;
+    width: auto !important;
+    height: auto !important;
+    padding: 4px 7px !important;
+    border: 1px solid #666;
+    background: #336;
+    color: #FFF;
+    pointer-events: none;
+    font-size: 11px !important;
+
+    transition: opacity 0s;
+    opacity: 0;
+}
+
+svg {
+    z-index: 1;
 }
 
 body {
-    font-family: monospace;
+    font-family: system-ui;
     background: #000;
     font-size: 16px;
     text-align: center;
@@ -20,6 +53,87 @@ body {
             display: none !important;
         }
     }
+
+    &.option_lessColumns {
+        #extraCols {
+            span {
+                background-color: #4AD;
+            }
+        }
+
+        .optionalCol {
+            display: none !important;
+        }
+
+    }
+
+    &.option_stock_hide_empty {
+        .boardMode {
+            .boardTable .boardCell[totalval="0"] {
+                display: none !important;
+            }
+
+            #hideEmpty .ico {
+                background-color: #49B !important;
+            }
+        }
+    }
+}
+
+.infoBox {
+    position: fixed;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 900;
+    background-color: #000A;
+    cursor: pointer;
+
+    .window {
+        background: #311;
+        border: #333 2px solid;
+        color: #FFF;
+        max-width: 500px;
+        cursor: pointer;
+
+        .title {
+            font-size: 18px;
+            font-weight: bold;
+            background-color: #FFF1;
+            padding: 10px;
+            cursor: pointer;
+        }
+
+        .message {
+            margin: 40px 50px 30px 50px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+
+        .context {
+            padding: 6px;
+            color: #777;
+            font-style: italic;
+            background-color: #0003;
+        }
+
+        .buttons {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 0 10px 10px;
+
+            button {
+                font-size: 16px;
+                padding: 12px 15px;
+                margin: 10px;
+            }
+        }
+    }
 }
 
 .hidden {
@@ -27,137 +141,78 @@ body {
 }
 
 button {
-    background-color: #499;
+    display: flex;
+    align-items: center;
+    height: 100%;
+    margin: 0;
+    height: 28px;
+    line-height: normal;
     border: none;
-    margin: 0 4px;
-    min-height: 23px;
-    min-width: 23px;
-    transition: 0.05s;
+    font-size: 12px;
+    background-color: #89A;
     cursor: pointer;
-    line-height: 23px;
 
     &:hover {
-        background-color: #5AA;
-    }
+        background-color: #69C;
 
-    &.btnDelete {
-        background-color: #944;
-        font-size: 14px;
-        line-height: 20px;
-        padding: 0;
-
-        &:hover {
-            background-color: #B66;
-        }
-    }
-
-}
-
-.compactMode {
-    .comp {
-        display: none !important;
-    }
-
-    .toolZone {
-        flex-basis: 128px !important;
-        min-width: 128px !important;
-        max-width: 128px !important;
-    }
-}
-
-
-.content {
-    display: flex;
-    flex-direction: column;
-}
-
-.contentHead {
-    top: 0px;
-    left: 0px;
-    width: 100vw;
-}
-
-.contentBody {
-    flex-grow: 1;
-}
-
-.tools,
-.options {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: center;
-    background: #222;
-    padding: 5px;
-
-    button {
-        height: 100%;
-        margin: 2px 2px !important;
-        height: 28px;
-        padding: 3px 7px;
-        line-height: normal;
-        font-size: 12px;
-    }
-
-    #autoRead,
-    #autoSave,
-    #pauseAll,
-    #extraCols {
-        min-width: 125px;
-        max-width: 125px;
-
-        &.active {
-            background-color: #4AD;
-        }
-    }
-
-    #addOrder {
-        background-color: #49B;
-
-        &:hover {
-            background-color: #5AC;
-        }
-    }
-
-    label {
-        display: flex;
-        margin: 0 0;
-
-        &:hover {
-            span {
-                background-color: #555;
+        span {
+            &.ico {
+                background-color: #777;
                 color: #FFF;
             }
         }
+    }
 
-        span {
-            display: block;
-            background-color: #444;
-            text-align: center;
-            align-content: center;
-            color: #6BB;
-            width: 28px;
-            height: 28px;
+    &.active {
+        background-color: #4AD;
+    }
+
+
+    span {
+        display: block;
+        padding: 0 4px;
+        flex-basis: 0px;
+
+        &#fileRead {
+            white-space: nowrap;
+        }
+
+        &.ico {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: #FFF;
+            background: #666;
             font-size: 20px;
-            font-weight: bold;
-            line-height: 26px;
-            margin: 2px -2px 2px 15px;
-        }
+            height: 100%;
+            width: 100%;
+            min-width: 30px;
+            line-height: 100%;
 
-        button {
-            right: 0px;
-            margin: 0;
+            svg {
+                width: 20px;
+                height: 20px;
+            }
         }
     }
 
-    .sep {
-        display: none;
-        flex-basis: 2px;
-        min-width: 2px;
-        height: 10px;
-        background-color: #444;
-        margin: 0 5px;
+    &#addOrder {
+        span {
+            background-color: #49B;
+        }
+
+        &:hover {
+            span {
+                background-color: #5AC;
+            }
+        }
     }
+}
+
+.sep {
+    flex-basis: 1px;
+    height: 10px;
+    margin: 0 5px;
 }
 
 
@@ -166,455 +221,739 @@ input.inputNumber::-webkit-inner-spin-button {
     -webkit-appearance: none;
 }
 
-input[affectedprop="max_workshops"] {
-    color: #366;
+.base {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    max-height: 100vh;
+    max-width: 100vw;
+    align-items: center;
+    justify-content: center;
+    overflow-x: visible;
+
+    .contentBackdrop {
+        position: absolute;
+        top: 0px;
+        left: 0px;
+        width: 100vw;
+        height: 100vh;
+        background: #000;
+        z-index: 0;
+    }
 }
 
-.ordersTable {
-    display: inline-block;
-    width: auto;
-    margin: 30px 0 5px 0;
-    background: #000;
 
-    input {
-        position: absolute;
-        top: 0;
-        left: 0px;
-        width: 100%;
-        height: 100%;
-        max-width: 100%;
-        text-align: right;
-        border: none;
-        background: transparent;
-        font-family: monospace;
-        background: #366;
-        color: #DDD;
-        padding: 0 8px;
+.rawMode,
+.boardMode {
 
-        &::placeholder {
-            color:#FFF5;
-        }
+    &.hidden {
+        display: none !important;
+    }
+}
 
+
+.contentHead {
+    z-index: 40;
+    top: 0px;
+    left: 0px;
+    width: 100vw;
+    flex-shrink: 0;
+
+
+    .tools {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: center;
+        background: #222;
+        padding: 5px;
     }
 
-    .orderRow {
-        position: relative;
-        border-top: 1px #FFF1 solid;
-        display: flex;
-        align-items: center;
-        background-color: #222;
 
-        &.deleted {
+    .tabs {
+        display: flex;
+        justify-content: center;
+        padding: 10px 0 0 0;
+        background: #111;
+        width: 100%;
+        z-index: 1;
+        border-bottom: 2px #666 solid;
+
+        button {
+            z-index: 2;
+            border: 3px solid #666;
+            border-bottom: none;
+            background-color: #333;
+            color: #FFF;
+            min-width: 150px;
+            justify-content: center;
+
+            &:hover {
+                background-color: #222;
+            }
+
+            &.active {
+                transform: translate(0, 2px);
+                background-color: #000;
+            }
+
+
+            span {
+                &:nth-child(2) {
+                    flex-grow: 1;
+                }
+            }
+        }
+    }
+}
+
+.option_toolsSide {
+    .rawMode {
+        flex-direction: row-reverse;
+    }
+}
+
+.rawMode {
+    display: inline-flex;
+    z-index: 1;
+    justify-content: flex-start;
+    align-items: flex-start;
+    padding: 0;
+    margin: 50px 0;
+    flex-shrink: 1;
+    flex-grow: 1;
+    flex-basis: 100%;
+    overflow-y: auto;
+    overflow-x: visible;
+    scrollbar-width: none;
+
+
+    .tools {
+        position: sticky;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-start;
+        top: 0;
+        left: 0;
+        padding: 2px 0;
+        z-index: 50;
+
+        background: #111;
+
+        button {
+            padding: 0;
+            margin: 5px;
+            width: 35px;
+            height: 35px;
+
+            span {
+                display: flex;
+                flex-grow: 1;
+                width: 100%;
+                height: 100%;
+                padding: 5px;
+
+                svg {
+                    width: 100%;
+                    height: 100%;
+                }
+            }
+        }
+
+        .sep {
+            min-height: 15px;
+            margin: 0;
+            background-color: #000;
+        }
+    }
+
+    .ordersTable {
+        position: relative;
+        display: flex;
+        z-index: 1;
+        flex-direction: column;
+        max-height: 100%;
+        width: auto;
+        background: #000;
+        overflow: visible;
+        margin: 0px 20px;
+        min-height: 50px;
+        flex-grow: 1;
+
+
+        input {
+            position: absolute;
+            top: 0;
+            left: 0px;
+            width: 100%;
+            height: 100%;
+            max-width: 100%;
+            text-align: right;
+            border: none;
+            background: transparent;
+            font-family: monospace;
+            background: #366;
+            color: #DDD;
+            padding: 0 6px;
+
+            &::placeholder {
+                color: #FFF5;
+            }
+
+        }
+
+        .orderRow {
+            position: relative;
+            display: flex;
+            align-items: center;
+            overflow: visible;
+
+            &.header {
+                position: absolute;
+                top: 0;
+                z-index: 10;
+
+                .property {
+                    overflow: hidden;
+                }
+
+                .head {
+                    background: #333;
+
+                    &.job {
+                        position: relative;
+
+                        input {
+                            position: absolute;
+                            right: 0;
+                            left: auto;
+                            width: 150px;
+                            overflow: visible;
+                        }
+                    }
+                }
+            }
+
             &:before {
                 content: " ";
                 position: absolute;
-                display: block;
-                height: 2px;
-                background: #FFF5;
-                top: 50%;
+                bottom: 0;
                 left: 0;
                 width: 100%;
-                z-index: 8;
+                height: 100%;
+                background: linear-gradient(#0004, #0000 12%);
+                pointer-events: none;
+                z-index: 400;
             }
 
-            .property {
-                background-color: #522 !important;
-            }
-        }
+            &:hover {
+                &:after {
+                    content: " ";
+                    background: #FFF1;
+                    z-index: 120;
+                    position: absolute;
+                    top: 0;
+                    left: 0;
+                    width: 100%;
+                    height: 100%;
+                    pointer-events: none;
 
-        &.edited {
-            &:before {
-                /*pen icon*/
-                content: "\270E";
-                position: absolute;
-                display: block;
-                background: #222;
-                color: #99A;
-                top: 3px;
-                right: calc(100% + 6px);
-                border-radius: 25px;
-                width: 25px;
-                height: 25px;
-                line-height: 25px;
-                z-index: 8;
+                }
+
+                .toolZone {
+                    .rowTool {
+                        div {
+                            background: #499;
+                        }
+                    }
+                }
+
+                .property {
+                    &.item_conditions {
+                        z-index: 20;
+                    }
+                }
             }
 
-            .property {
-                background-color: #242 !important;
-            }
-        }
+            &.deleted {
+                &:after {
+                    content: " ";
+                    position: absolute;
+                    display: block;
+                    height: 2px;
+                    background: #FFF5;
+                    top: 50%;
+                    left: 0;
+                    width: 100%;
+                    z-index: 8;
+                }
 
-        &:hover {
-            .property {
-                background-color: #444;
+                .property {
+                    background-color: #522 !important;
+                }
+            }
+
+            &.edited:not(.new) {
+                &:before {
+                    content: "\270E";
+                    position: absolute;
+                    display: block;
+                    background: #252;
+                    color: #EEE;
+                    top: 50%;
+                    transform: translate(-120%, -50%);
+                    border-radius: 25px;
+                    width: 22px;
+                    height: 22px;
+                    line-height: 22px;
+                    z-index: 800;
+                    font-size: 15px;
+                }
+
+                .property {
+                    color: #FFF !important;
+                    background-color: #242 !important;
+                }
+            }
+
+            &.new {
+                &:before {
+                    content: "\271A";
+                    position: absolute;
+                    display: block;
+                    background: #551;
+                    color: #EEE;
+                    top: 50%;
+                    transform: translate(-120%, -50%);
+                    border-radius: 25px;
+                    width: 22px;
+                    height: 22px;
+                    line-height: 22px;
+                    z-index: 800;
+                    font-size: 15px;
+                }
+
+                .property {
+                    color: #FF3 !important;
+                    background-color: #551 !important;
+                }
+            }
+
+            &.dragOver {
+                border-top: 1px #66F dashed;
+
+                & .property {
+                    background-color: #338 !important;
+                }
+            }
+
+            &.pauseAll {
+                opacity: 0.6;
+            }
+
+            &.pauseFrom {
+                opacity: 0.6;
+
+                .btnStopAllAfter {
+                    background: #FA3;
+                }
+            }
+
+            &.pauseOne {
+                opacity: 0.6;
+
+                .btnToggleMe {
+                    background: #FA3;
+                }
+            }
+
+
+
+            &.validated {
+                .property {
+                    background-color: rgb(25, 25, 60);
+                    color: #666;
+
+                    &.isTrue {
+                        background-color: #055 !important;
+                    }
+
+                    &.isFalse {
+                        background-color: #022 !important;
+                    }
+                }
+            }
+
+            &.active {
+                .property {
+                    background-color: rgb(35, 35, 80);
+                    color: #BBB;
+
+                    &.isTrue {
+                        background-color: #055 !important;
+                    }
+
+                    &.isFalse {
+                        background-color: #033 !important;
+                    }
+                }
             }
 
             .toolZone {
-                background-color: #444;
-            }
-        }
-
-        &.header {
-            font-size: 80% !important;
-        }
-
-        &.head {
-            background: #333;
-        }
-
-        .head.job {
-            position: relative;
-
-            input {
-                position: absolute;
-                right: 0;
-                left: auto;
-                width: 150px;
-                overflow: visible;
-            }
-        }
-
-        &.dragOver {
-            border-top: 1px #66F dashed;
-
-            & .property {
-                background-color: #338 !important;
-            }
-        }
-
-        &.pauseAll {
-            opacity: 0.6;
-        }
-
-        &.pauseFrom {
-            opacity: 0.6;
-
-            .btnStopAllAfter {
-                background: #FA3;
-            }
-        }
-
-        &.pauseOne {
-            opacity: 0.6;
-
-            .btnToggleMe {
-                background: #FA3;
-            }
-        }
-
-        .toolZone {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            order: 1000;
-            height: 30px;
-            flex-basis: 190px;
-            min-width: 190px;
-            max-width: 190px;
-            z-index: 9;
-            background-color: #222;
-
-            .rowTool.btnMax {
-                order: 970;
-            }
-
-            .rowTool.btnMin {
-                order: 980;
-            }
-
-            .rowTool.btnDuplicate {
-                order: 990;
-            }
-
-            .rowTool.btnDelete {
-                order: 1000;
-            }
-        }
-
-
-
-        .property,
-        .toolZone {
-            position: relative;
-            overflow: hidden;
-            flex-basis: 40px;
-            flex-grow: 1;
-            overflow: hidden;
-            color: #AAA;
-            border-left: #333 1px solid;
-            border-right: #333 1px solid;
-            padding: 0 6px;
-            margin: 0 -1px;
-            height: 30px;
-            line-height: 30px;
-            background-color: #222;
-            overflow: hidden;
-            text-align: left;
-
-
-            &.toggleable {
-                cursor: pointer;
-            }
-
-
-
-            &.isTrue {
-                background-color: #444;
-                color: #AAA;
-
-                &.toggleable {
-                    color: #CCC;
-                    background-color: #449;
-                }
-            }
-
-            &.isFalse {
-                background-color: #222;
-                color: #999;
-
-                &.toggleable {
-                    color: #AAA;
-                    background-color: #722;
-                }
-            }
-
-            &.id {
-                text-align: center;
-                order: 0;
-            }
-
-            &.job {
-                flex-basis: 210px;
-                min-width: 210px;
-                max-width: 210px;
-                order: 10;
-
-                .progressBar {
-                    position: absolute;
-                    bottom: 0;
-                    left: 0;
-                    height: 3px;
-                    background-color: #4F46;
-                    width: 0%;
-                }
-            }
-
-            &.amount_total {
-                flex-basis: 45px;
-                min-width: 45px;
-                max-width: 45px;
-                order: 30;
-                text-align: right;
-            }
-
-            &.amount_left {
-                flex-basis: 45px;
-                min-width: 45px;
-                order: 35;
-                text-align: right;
-                max-width: 50px;
-
-                input {
-                    color: #AAF;
-                }
-            }
-
-            &.max_workshops {
-                flex-basis: 40px;
-                min-width: 40px;
-                max-width: 40px;
-                order: 37;
-                text-align: right;
-
-                input {
-                    text-align: center;
-                    color: #AFA;
-                }
-            }
-
-            &.item_subtype {
-                flex-basis: 200px;
-                min-width: 200px;
-                max-width: 200px;
-                order: 40;
-            }
-
-
-            &.material {
-                flex-basis: 180px;
-                min-width: 180px;
-                max-width: 180px;
-                order: 50;
-            }
-
-            &.material_category {
-                flex-basis: 80px;
-                order: 60;
-            }
-
-            &.frequency {
-                flex-basis: 80px;
-                min-width: 80px;
-                max-width: 80px;
-                order: 90;
-            }
-
-
-            &.item_conditions {
-                flex-basis: 80px;
-                min-width: 80px;
-                max-width: 80px;
-                order: 100;
-                overflow: visible;
-
-                .conditionsNum {
-                    display: block;
-                    width: 100%;
-                    height: 10px;
-                }
-
-                &:hover {
-                    .conditionsContainer {
-                        display: block;
-                    }
-                }
-            }
-
-            &.is_validated {
-                flex-basis: 40px;
-                min-width: 40px;
-                max-width: 40px;
-                text-align: center;
-                order: 110;
-            }
-
-            &.is_active {
-                flex-basis: 40px;
-                min-width: 40px;
-                max-width: 40px;
-                text-align: center;
-                order: 111;
-            }
-
-
-        }
-
-        .conditionsContainer {
-            position: absolute;
-            display: none;
-            top: 100%;
-            right: 0;
-            line-height: 20px;
-            overflow: visible;
-            z-index: 10;
-
-            &:before {
-                content: "";
-                display: block;
-                position: absolute;
-                z-index: -1;
-                width: calc(100% + 10px);
-                height: calc(100% + 10px);
-                top: -5px;
-                left: -5px;
-                background: #333;
-            }
-
-            .buttons {
                 display: flex;
                 justify-content: center;
-                align-items: center;
-                margin: 2px 0;
+                order: 1000;
+                height: 100%;
+                flex-grow: 1;
+                z-index: 9;
+                background-color: #222;
+                padding: 2px 2px !important;
+                border: none !important;
 
-                * {
-                    flex-grow:1;
+                &:hover {
+                    background: #111;
                 }
-            }
 
-            .condition {
-                margin: 2px 0;
-
-                .conditionPartsHost {
+                .rowTool {
                     display: flex;
-                    flex-wrap: nowrap;
-                    width: 100%;
+                    margin: 0 1px 0 0;
+                    height: 100%;
+                    flex-grow: 1;
+                    flex-shrink: 1;
+                    flex-basis: 40px;
+                    background: #0000;
 
-                    .conditionPart {
-                        position: relative;
-                        padding: 2px 4px;
-                        min-width: 30px;
-                        margin: 0 1px;
-                        background-color: #222;
-                        flex-grow: 1;
-                        text-align: center;
+                    &:last-child {
+                        margin-right: 0px !important;
+                    }
 
-                        &:empty {
-                            display: none;
+                    div {
+                        display: block;
+                        background: #4994;
+                        width: 100%;
+                        height: 1px;
+                    }
+
+                    &:hover {
+                        div {
+                            background: #FFF;
                         }
                     }
 
-                    .btnCopy {
-                        order: 80;
-                        margin:0 2px;
-                    }
-                    .btnDelete {
-                        order: 90;
-                        margin:0 2px;
-                    }
 
-                    .cond_flags {
-                        order: 10;
-                    }
+                }
 
-                    .cond_material {
-                        order: 15;
-                    }
 
-                    .cond_item_type {
-                        order: 20;
-                    }
+                .rowTool.btnMax {
+                    order: 970;
+                }
 
-                    .cond_item_subtype {
-                        order: 30;
-                    }
+                .rowTool.btnMin {
+                    order: 980;
+                }
 
-                    .cond_condition {
-                        order: 40;
-                        max-width: 30px;
-                        min-width: 30px;
-                        font-size: 100%;
-                        font-weight: bold;
-                        color: #2C6;
-                    }
+                .rowTool.btnDuplicate {
+                    order: 990;
+                }
 
-                    .cond_value {
-                        order: 50;
-                        max-width: 45px;
-                        min-width: 45px;
-                        text-align: right;
-                    }
-
-                    .cond_reaction_id {
-                        display: none;
-                    }
+                .rowTool.btnDelete {
+                    order: 1000;
                 }
             }
 
-        }
+            .property {
+                overflow: hidden;
 
-        .btnPaste {
-            &.disabled {
-                opacity: 0.2;
+                div {
+                    text-transform: capitalize;
+                    text-align: left;
+                    white-space: nowrap;
+                }
             }
-        }
 
-        .btnAddCondition {
-            margin: 2px 0;
-            padding: 0;
-            background-color: #558;
+            .toolZone {
+                padding: 0 !important;
+            }
 
-            &:hover {
-                background-color: #77C;
+            .property,
+            .toolZone {
+                position: relative;
+                flex-grow: 0;
+                flex-shrink: 0;
+                color: #666;
+                border-left: #333 1px solid;
+                border-right: #333 1px solid;
+                padding: 0 6px;
+                margin: 0 -1px;
+                height: 40px;
+                line-height: 40px;
+                background-color: rgb(15, 15, 15);
+                text-align: left;
+                z-index: 100;
+
+                &.limitCols {
+                    height: 20px;
+                    line-height: 20px;
+                }
+
+
+                &.toggleable {
+                    cursor: pointer;
+                }
+
+
+
+                &.isTrue {
+                    background-color: #444;
+                    color: #AAA;
+
+                    &.toggleable {
+                        color: #CCC;
+                        background-color: #449;
+                    }
+                }
+
+                &.isFalse {
+                    background-color: #222;
+                    color: #999;
+
+                    &.toggleable {
+                        color: #AAA;
+                        background-color: #722;
+                    }
+                }
+
+                &.id {
+                    text-align: center;
+                    order: 0;
+                }
+
+                &.job {
+                    flex-basis: 210px;
+                    order: 10;
+                    overflow: hidden;
+
+                    .progressBar {
+                        position: absolute;
+                        bottom: 0;
+                        left: 0;
+                        height: 3px;
+                        background-color: #4F46;
+                        width: 0%;
+                    }
+                }
+
+                &.amount_total {
+                    flex-basis: 45px;
+                    order: 30;
+                    text-align: right;
+                }
+
+                &.amount_left {
+                    flex-basis: 45px;
+                    order: 35;
+                    text-align: right;
+                    max-width: 50px;
+
+                    input {
+                        color: #AAF;
+                    }
+                }
+
+                &.max_workshops {
+                    flex-basis: 40px;
+                    order: 37;
+                    text-align: right;
+
+                    input {
+                        text-align: center;
+                        color: #AFA;
+                    }
+                }
+
+                &.item_subtype {
+                    flex-basis: 200px;
+                    order: 40;
+                }
+
+
+                &.material {
+                    flex-basis: 180px;
+                    order: 50;
+                    justify-content: flex-end;
+                }
+
+                &.material_category {
+                    flex-basis: 80px;
+                    order: 60;
+                }
+
+                &.frequency {
+                    flex-basis: 80px;
+                    order: 90;
+                }
+
+                &.num {
+                    font-family: monospace;
+                }
+
+
+                &.item_conditions {
+                    flex-basis: 80px;
+                    order: 100;
+                    overflow: visible;
+                    z-index: 10;
+
+                    .conditionsNum {
+                        display: block;
+                        width: 100%;
+                        height: 10px;
+                    }
+
+                    &:hover {
+                        .conditionsContainer {
+                            display: block;
+                        }
+                    }
+                }
+
+                &.is_validated {
+                    order: 110;
+                }
+
+                &.is_active {
+                    order: 111;
+                }
+
+                &.yesno {
+                    flex-basis: 40px;
+                    text-align: center;
+
+                    div {
+                        display: inline-block;
+                    }
+                }
+
+
+            }
+
+            .conditionsContainer {
+                position: absolute;
+                display: none;
+                top: 100%;
+                right: 0;
+                line-height: 20px;
+                overflow: visible;
+
+                &:before {
+                    content: "";
+                    display: block;
+                    position: absolute;
+                    z-index: -1;
+                    width: calc(100% + 10px);
+                    height: calc(100% + 10px);
+                    top: -5px;
+                    left: -5px;
+                    background: #333;
+                }
+
+                .buttons {
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                    margin: 2px 0;
+
+                    * {
+                        flex-grow: 1;
+                    }
+                }
+
+                .condition {
+                    margin: 2px 0;
+
+                    .conditionPartsHost {
+                        display: flex;
+                        flex-wrap: nowrap;
+                        width: 100%;
+
+                        .conditionPart {
+                            position: relative;
+                            padding: 2px 4px;
+                            min-width: 30px;
+                            margin: 0 1px;
+                            background-color: #222;
+                            flex-grow: 1;
+                            text-align: center;
+
+                            &:empty {
+                                display: none;
+                            }
+                        }
+
+                        .btnCopy {
+                            order: 80;
+                            margin: 0 2px;
+                        }
+
+                        .btnDelete {
+                            order: 90;
+                            margin: 0 2px;
+                        }
+
+                        .cond_flags {
+                            order: 10;
+                        }
+
+                        .cond_material {
+                            order: 15;
+                        }
+
+                        .cond_item_type {
+                            order: 20;
+                        }
+
+                        .cond_item_subtype {
+                            order: 30;
+                        }
+
+                        .cond_condition {
+                            order: 40;
+                            max-width: 30px;
+                            min-width: 30px;
+                            font-size: 100%;
+                            font-weight: bold;
+                            color: #2C6;
+                        }
+
+                        .cond_value {
+                            order: 50;
+                            max-width: 45px;
+                            min-width: 45px;
+                            text-align: right;
+                        }
+
+                        .cond_reaction_id {
+                            display: none;
+                        }
+                    }
+                }
+
+            }
+
+            .btnPaste {
+                &.disabled {
+                    opacity: 0.2;
+                }
+            }
+
+            .btnAddCondition {
+                margin: 2px 0;
+                padding: 0;
+                background-color: #558;
+
+                &:hover {
+                    background-color: #77C;
+                }
             }
         }
     }
@@ -625,67 +964,74 @@ input[affectedprop="max_workshops"] {
     position: fixed;
     display: flex;
     flex-direction: column;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
     flex-direction: column;
-    width: 330px;
-    max-width: 330px;
-    background-color: #333;
-    padding: 10px 20px 20px 20px;
-    color: #AAA;
-    z-index: 10;
+    z-index: 200;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
 
-    &:before {
-        content: " ";
+    .background {
         display: block;
         position: absolute;
-        top: -60vh;
-        left: -60vw;
-        width: 150vw;
-        height: 150vh;
-        background: #111A;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        background: #050505CC;
         z-index: -1;
-        pointer-events: none;
     }
 
-    &>* {
-        margin: 1px 0;
-    }
+    .window {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 330px;
+        max-width: 330px;
+        background-color: #333;
+        padding: 10px 20px 20px 20px;
+        color: #AAA;
+        z-index: 100;
 
-    H3 {
-        margin: 0 0 10px 0;
-    }
-
-    label {
-        display: flex;
-        width: 100%;
-
-        span {
-            display: block;
-            flex-basis: 95px;
-            max-width: 95px;
-            min-width: 95px;
-            text-align: right;
-            margin-right: 5px;
-            overflow: hidden;
+        &>* {
+            margin: 1px 0;
         }
 
+        H3 {
+            margin: 0 0 10px 0;
+        }
+
+        label {
+            display: flex;
+            width: 100%;
+
+            span {
+                display: block;
+                flex-basis: 95px;
+                max-width: 95px;
+                min-width: 95px;
+                text-align: right;
+                margin-right: 5px;
+                overflow: hidden;
+            }
+
+            input {
+                flex-grow: 1;
+                width: auto;
+                min-width: 0px;
+            }
+
+        }
+
+        select,
         input {
-            flex-grow: 1;
-            width: auto;
-            min-width: 0px;
+            border: none;
+            background: #366;
+            color: #DDD;
+            padding: 4px 8px;
+            margin-left: 2px;
         }
-
-    }
-
-    select,
-    input {
-        border: none;
-        background: #366;
-        color: #DDD;
-        padding: 4px 8px;
-        margin-left: 2px;
     }
 }
 
@@ -708,4 +1054,1058 @@ input[affectedprop="max_workshops"] {
             color: #FFF;
         }
     }
+}
+
+
+
+.boardMaterialsPickerHost {
+    position: fixed;
+    display: flex;
+    top: 0px;
+    right: 0px;
+    width: 100%;
+    height: 100%;
+    background-color: #000A;
+    z-index: 10;
+}
+
+.boardMaterialsPicker {
+    position: fixed;
+    display: flex;
+    flex-direction: column;
+    flex-wrap: wrap;
+    align-content: flex-start;
+    justify-content: flex-start;
+    top: 50%;
+    left: 50%;
+    max-height: 75vh;
+    min-height: 75vh;
+
+    min-width: 300px;
+    max-width: 85vw;
+    width: 85vw;
+
+    background-color: #111;
+    padding: 40px 10px 10px 10px;
+    overflow-x: auto;
+    scrollbar-width: thin;
+    transform: translate(-50%, -50%);
+
+    .filter {
+        position: absolute;
+        top: 0px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 100%;
+        background-color: #222;
+
+        input {
+            height: 28px;
+            width: 300px;
+            font-size: 18px;
+            text-align: center;
+            border: none;
+            color: #FFF;
+            background-color: #FFF5;
+
+            &:focus {
+                background-color: #FF0;
+                color: #000;
+            }
+
+            &::placeholder {
+                color: #FFF8;
+                font-weight: normal;
+                font-size: 15px;
+            }
+        }
+    }
+
+    .materialOption {
+        position: relative;
+        display: block;
+        padding: 0;
+        background-color: #444;
+        line-height: 90%;
+        flex-grow: 0;
+        flex-shrink: 0;
+        max-height: 0;
+        overflow: visible;
+
+        &:hover {
+            z-index: 10;
+
+            div {
+                transition: transform 0s, background 0s;
+                transform: scale(1.1);
+                background: #AA4;
+            }
+        }
+
+        div {
+            position: absolute;
+            display: flex;
+            top: 0;
+            left: 0;
+            flex-direction: column;
+            align-items: center;
+            background-color: #444;
+            width: 100%;
+            height: 100%;
+            overflow: visible;
+
+            transition: transform 0.2s ease-out, background 0.2s;
+            transform: scale(1);
+
+
+            .label {
+                position: static;
+                padding: 0 14px;
+                vertical-align: middle;
+                align-items: center;
+                justify-content: center;
+
+                span {
+                    font-size: 80%;
+                    color: #111;
+
+                    &.tag {
+                        position: absolute;
+                        display: block;
+                        top: 0;
+                        left: 0;
+                        width: 10%;
+                        height: 100%;
+                        font-size: 0;
+                        padding: 1px 2px;
+
+                        &.wood {
+                            background-color: #AF52;
+                        }
+
+                        &.inorganic {
+                            background-color: #0002;
+                        }
+
+                        &.plant {
+                            background-color: #00F2;
+                        }
+
+                        &.leather {
+                            background-color: #F002;
+                        }
+
+                        &.bone {
+                            background-color: #FFF2;
+                        }
+                    }
+                }
+            }
+        }
+
+        &.selected {
+            div {
+                background-color: #4AD !important;
+            }
+        }
+
+        .qtt {
+            position: absolute;
+            display: block;
+            bottom: 0;
+            right: 0;
+            width: 33px;
+            height: 100%;
+            align-content: center;
+
+            padding: 0 3px;
+            color: #FFFA;
+            background-color: #0005;
+        }
+
+    }
+}
+
+.boardMode {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    z-index: 30;
+    flex-shrink: 1;
+    flex-grow: 1;
+    flex-basis: 100%;
+    width: 100%;
+    max-width: 95vw;
+    max-height: 80vh;
+    overflow: hidden;
+
+    margin: 20px 0 80px 0;
+    scrollbar-width: none;
+
+    .tools {
+        display: flex;
+        flex-direction: row;
+        width: 100%;
+        justify-content: center;
+        margin: 10px;
+    }
+
+    .boardTableHeader {
+        display: flex;
+        position: sticky;
+        margin-bottom: 1px;
+        top: 0;
+        background-color: #000;
+        z-index: 10;
+        padding-left: 159px;
+
+        .boardCell {
+            position: relative;
+            display: flex;
+            width: 100%;
+            height: 100%;
+            justify-content: center;
+            align-items: center;
+            flex-basis: 1px;
+            flex-grow: 0;
+            flex-shrink: 0;
+            overflow: hidden;
+            line-height: 95%;
+
+            background: #333;
+            color: #CCC;
+
+            transition: background-color 0.5s ease-out;
+
+            * {
+                margin: 0 4px;
+            }
+
+            span {
+                display: none;
+            }
+
+
+            &:first-child {
+                min-width: 150px;
+            }
+
+            &.corner {
+                display: flex;
+                position: absolute;
+                padding: 0;
+                left: 0;
+                z-index: 20;
+
+                * {
+                    display: block;
+                    margin: 0;
+                    width: 100%;
+                    flex-grow: 1;
+                    flex-shrink: 0;
+                    flex-basis: 10px;
+                    height: 100%;
+                    color: #0008;
+                    white-space: wrap;
+                    text-align: center;
+                }
+
+                input {
+                    padding: 0 3px;
+                    border: none;
+
+                    &:focus {
+                        background-color: #FF0;
+                        border: none;
+                        color: #000;
+                    }
+                }
+            }
+        }
+    }
+
+
+    .boardContent {
+        position: relative;
+        z-index: 2;
+        flex-shrink: 1;
+        flex-grow: 1;
+        flex-basis: 100%;
+        width: auto;
+        max-width: 100%;
+        max-height: 100%;
+
+        margin: 5px 0;
+        overflow-y: auto;
+        overflow-x: hidden;
+        scrollbar-width: none;
+
+        .boardTable {
+            position: relative;
+            display: inline-block;
+            max-height: 100%;
+            max-width: 100%;
+            width: 100%;
+            overflow-y: hidden;
+            overflow-x: hidden;
+
+
+            .itemsSide {
+                position: sticky;
+                display: flex;
+                flex-direction: column;
+                flex-grow: 0;
+                left: 0;
+                flex-shrink: 0;
+                z-index: 5;
+                margin-right: 3px;
+                background: #000;
+
+                .boardCell {
+                    position: relative;
+                    overflow: hidden;
+                    align-content: center;
+                    flex-grow: 0;
+                    flex-shrink: 0;
+                    width: 100%;
+                    text-align: left;
+
+                    white-space: nowrap;
+                    color: #CCC;
+                    background: #333;
+
+                }
+            }
+
+            .valuesSide {
+                display: flex;
+                flex-grow: 1;
+
+                .boardCol {
+                    display: flex;
+                    flex-direction: column;
+                    flex-grow: 0;
+                    flex-shrink: 0;
+                }
+            }
+
+            .boardBody {
+                position: relative;
+                display: flex;
+                z-index: 3;
+                min-width: 159px;
+                max-width: none;
+                flex-basis: 1px;
+                width: auto;
+                height: 100%;
+                flex-grow: 1;
+                flex-shrink: 1;
+
+                overflow-x: visible;
+                overflow-y: hidden;
+                scrollbar-width: none;
+            }
+
+            .boardCol {
+                position: relative;
+                display: flex;
+
+                .boardCell {
+                    position: relative;
+                    background-color: rgb(25, 25, 60);
+                    color: #EEE;
+                    overflow: hidden;
+                    white-space: wrap;
+                    transition: opacity 0.2s, background-color 20s ease-out;
+
+
+                    &.popUp {
+                        transition: background-color 0s;
+                        background-color: #337;
+                    }
+
+                    &.popDown {
+                        transition: background-color 0s;
+                        background-color: #600;
+                    }
+
+                    &[totalVal="0"] {
+                        opacity: 0.3;
+                        background: #333;
+
+                        &.editable {
+                            pointer-events: none;
+
+                            input.wanted {
+                                background-color: #444;
+                            }
+                        }
+
+                    }
+
+                    &:hover {
+                        transition: opacity 0s;
+                        opacity: 1;
+                        border: 1px solid #FFF3;
+
+                        &[totalVal="0"] {
+                            opacity: 0.75;
+                        }
+                    }
+
+                    span {
+                        display: none;
+                    }
+
+                    &.editable {
+                        display: flex;
+                        font-family: monospace;
+                        align-items: flex-start;
+                        border: 1px solid #0000;
+                        padding: 0 7px;
+
+
+                        * {
+                            flex-grow: 1;
+                            flex-basis: 100%;
+                            height: 100%;
+                            align-content: center;
+                        }
+
+                        .stock {
+                            color: #585;
+                            text-align: right;
+                            flex-basis: 50%;
+                            width: 1px;
+                            flex-grow: 1;
+                            flex-shrink: 1;
+                        }
+
+                        .sep {
+                            display: none;
+
+                            flex-basis: 13px;
+                            min-width: 13px;
+                            color: #555;
+                        }
+
+                        input.wanted {
+                            display: none;
+
+                            font-size: 100%;
+                            flex-shrink: 1;
+                            flex-basis: 50%;
+                            width: 1px;
+                            padding: 0 3px;
+                            color: #88F;
+                            text-align: left;
+                            background-color: rgb(35, 35, 80);
+                            border: none;
+                            font-family: monospace;
+
+                            &:focus {
+                                background-color: #FF0;
+                                border: none;
+                                color: #000;
+                            }
+                        }
+
+                    }
+
+                }
+            }
+        }
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+body.sizemode_3 {
+    .contentHead {
+        button {
+            font-size: 18px;
+
+            span:nth-child(2) {
+                padding: 15px 20px;
+            }
+        }
+    }
+
+    .keyInfo {
+        font-size: 18px !important;
+    }
+
+    .rawMode {
+        .ordersTable {
+            font-size: 22px;
+            padding-top: 60px;
+            min-width: 1050px;
+
+            .orderRow {
+                &.edited {
+                    &:before {
+                        width: 30px;
+                        height: 30px;
+                        line-height: 28px;
+                        font-size: 20px;
+                    }
+                }
+
+                input {
+                    font-size: 20px;
+                }
+
+                .property,
+                .toolZone {
+                    height: 60px;
+                    line-height: 60px;
+                }
+
+                .toolZone {
+                    min-width: 240px;
+                }
+
+                .rowTool {
+                    min-width: 29px;
+                    margin: 0 1px;
+                }
+
+                button div {
+                    min-height: 41px;
+                    line-height: 41px;
+                    font-size: 18px;
+                }
+
+                .property {
+                    padding: 0 6px;
+
+                    &.job {
+                        flex-basis: 320px !important;
+                    }
+
+                    &.material {
+                        flex-basis: 170px !important;
+                    }
+
+                    &.item_conditions {
+                        flex-basis: 100px !important;
+                    }
+
+                    &.num {
+                        padding: 0;
+                        flex-basis: 60px !important;
+                    }
+
+                    &.yesno {
+                        padding: 0;
+                        flex-basis: 60px !important;
+                    }
+                }
+            }
+        }
+    }
+
+    &.option_lessColumns {
+        .ordersTable {
+            min-width: 811px;
+        }
+
+        .toolZone {
+            min-width: 155px !important;
+            max-width: 155px !important;
+        }
+    }
+
+
+    .boardMode {
+        font-size: 22px;
+
+        .boardTable {
+            .boardCell {
+                height: 48px;
+                margin: 1px 1px;
+            }
+        }
+
+        .boardTableHeader {
+            height: 65px;
+            padding-left: 253px;
+
+            .boardCell {
+                flex-basis: 145px;
+                height: 100%;
+                margin: 0px 1px;
+            }
+        }
+
+        .corner,
+        .itemsSide {
+            width: 250px;
+            flex-basis: 250px;
+
+            .boardCell {
+                padding: 0 8px;
+            }
+
+            * {
+                font-size: 22px;
+            }
+        }
+
+        .valuesSide {
+            .boardCol {
+                flex-basis: 147px;
+            }
+        }
+    }
+
+    .materialOption {
+        min-height: 65px;
+        font-size: 22px;
+        margin: 1px;
+        max-width: 210px;
+        min-width: 210px;
+    }
+
+}
+
+
+body.sizemode_2 {
+    .contentHead {
+        button {
+            font-size: 16px;
+
+            span:nth-child(2) {
+                padding: 12px 16px;
+            }
+        }
+    }
+
+    .keyInfo {
+        font-size: 15px !important;
+    }
+
+    .rawMode {
+        .ordersTable {
+            font-size: 17px;
+            padding-top: 43px;
+            min-width: 1080px;
+
+            .orderRow {
+                &.edited {
+                    &:before {
+                        width: 30px;
+                        height: 30px;
+                        line-height: 28px;
+                        font-size: 20px;
+                    }
+                }
+
+                input {
+                    font-size: 16px;
+                }
+
+                .property,
+                .toolZone {
+                    height: 43px;
+                    line-height: 43px;
+                }
+
+                .toolZone {
+                    min-width: 210px;
+                }
+
+                .rowTool {
+                    min-width: 29px;
+                    margin: 0 1px;
+                }
+
+                button div {
+                    min-height: 36px;
+                    line-height: 36px;
+                    font-size: 16px;
+                }
+
+                .property {
+                    padding: 0 6px;
+
+                    &.job {
+                        flex-basis: 300px !important;
+                    }
+
+                    &.material {
+                        flex-basis: 150px !important;
+                    }
+
+                    &.item_conditions {
+                        flex-basis: 90px !important;
+                    }
+
+                    &.num {
+                        padding: 0;
+                        flex-basis: 55px !important;
+                    }
+
+                    &.yesno {
+                        padding: 0;
+                        flex-basis: 55px !important;
+                    }
+                }
+            }
+        }
+    }
+
+    &.option_lessColumns {
+        .ordersTable {
+            min-width: 841px;
+        }
+
+        .toolZone {
+            min-width: 155px !important;
+            max-width: 155px !important;
+        }
+    }
+
+
+    .boardMode {
+        font-size: 19px;
+
+        .boardTable {
+            .boardCell {
+                height: 38px;
+                margin: 1px 1px;
+            }
+        }
+
+        .boardTableHeader {
+            height: 55px;
+            padding-left: 223px;
+
+            .boardCell {
+                flex-basis: 145px;
+                height: 100%;
+                margin: 0px 1px;
+            }
+        }
+
+        .corner,
+        .itemsSide {
+            width: 220px;
+            flex-basis: 220px;
+
+            .boardCell {
+                padding: 0 5px;
+            }
+
+            * {
+                font-size: 19px;
+            }
+        }
+
+        .valuesSide {
+            .boardCol {
+                flex-basis: 147px;
+            }
+        }
+    }
+
+    .materialOption {
+        min-height: 65px;
+        font-size: 18px;
+        margin: 1px;
+        max-width: 190px;
+        min-width: 190px;
+    }
+
+}
+
+body.sizemode_1 {
+    .contentHead {
+        button {
+            font-size: 14px;
+
+            span:nth-child(2) {
+                padding: 10px 15px;
+            }
+        }
+    }
+
+    .keyInfo {
+        font-size: 12px !important;
+    }
+
+    .rawMode {
+        .ordersTable {
+            font-size: 15px;
+            padding-top: 40px;
+            min-width: 814px;
+
+            .orderRow {
+                &.edited {
+                    &:before {
+                        width: 27px;
+                        height: 27px;
+                        line-height: 25px;
+                        font-size: 19px;
+                    }
+                }
+
+                input {
+                    font-size: 14px;
+                }
+
+                .property,
+                .toolZone {
+                    height: 40px;
+                    line-height: 40px;
+                }
+
+                .toolZone {
+                    min-width: 150px;
+                }
+
+                button div {
+                    min-height: 29px;
+                    line-height: 29px;
+                    font-size: 13px;
+                }
+
+                .property {
+                    padding: 0 8px;
+
+                    &.job {
+                        flex-basis: 235px !important;
+                    }
+
+                    &.material {
+                        flex-basis: 125px !important;
+                    }
+
+                    &.item_conditions {
+                        flex-basis: 74px !important;
+                    }
+
+                }
+            }
+        }
+    }
+
+    &.option_lessColumns {
+        .ordersTable {
+            min-width: 660px;
+        }
+
+        .toolZone {
+            min-width: 110px !important;
+            max-width: 110px !important;
+        }
+    }
+
+
+    .boardMode {
+        font-size: 15px;
+
+        .boardTable {
+            .boardCell {
+                height: 28px;
+                margin: 1px 1px;
+            }
+        }
+
+        .boardTableHeader {
+            height: 50px;
+            padding-left: 193px;
+
+            .boardCell {
+                flex-basis: 108px;
+                height: 100%;
+                margin: 0px 1px;
+            }
+        }
+
+        .corner,
+        .itemsSide {
+            width: 190px;
+            flex-basis: 190px;
+
+            .boardCell {
+                padding: 0 5px;
+            }
+
+            * {
+                font-size: 15px;
+            }
+        }
+
+        .valuesSide {
+            .boardCol {
+                flex-basis: 110px;
+            }
+        }
+    }
+
+    .materialOption {
+        min-height: 50px;
+        font-size: 15px;
+        margin: 1px;
+        max-width: 170px;
+        min-width: 170px;
+    }
+
+}
+
+body.sizemode_0 {
+    .keyInfo {
+        font-size: 11px !important;
+    }
+
+    .rawMode {
+        .ordersTable {
+            font-size: 12px;
+            padding-top: 25px;
+            min-width: 760px;
+
+            .orderRow {
+                &.edited {
+                    &:before {
+                        width: 22px;
+                        height: 22px;
+                        line-height: 22px;
+                        font-size: 14px;
+                    }
+                }
+
+                input {
+                    font-size: 14px;
+                }
+
+                .property,
+                .toolZone {
+                    height: 25px;
+                    line-height: 25px;
+                }
+
+                .toolZone {
+                    min-width: 144px;
+                }
+
+                button div {
+                    min-height: 24px;
+                    line-height: 24px;
+                    font-size: 13px;
+                }
+
+                .property {
+                    &.job {
+                        flex-basis: 190px !important;
+                    }
+
+                    &.material {
+                        flex-basis: 110px !important;
+                    }
+
+                    &.item_conditions {
+                        flex-basis: 62px !important;
+                    }
+
+                    &.yesno {
+                        flex-basis: 30px !important;
+                        padding: 0;
+                    }
+
+                }
+
+            }
+        }
+
+    }
+
+    &.option_lessColumns {
+        .ordersTable {
+            min-width: 578px;
+        }
+
+        .toolZone {
+            min-width: 96px !important;
+            max-width: 96px !important;
+        }
+    }
+
+
+    .boardMode {
+        font-size: 12px;
+
+        .boardTable {
+            .boardCell {
+                height: 16px;
+                margin: 1px 1px;
+            }
+        }
+
+        .boardTableHeader {
+            height: 40px;
+            padding-left: 183px;
+
+            .boardCell {
+                flex-basis: 78px;
+                height: 100%;
+                margin: 0px 1px;
+            }
+        }
+
+        .corner,
+        .itemsSide {
+            width: 180px;
+            flex-basis: 180px;
+
+            .boardCell {
+                padding: 0 3px;
+            }
+
+            * {
+                font-size: 12px;
+            }
+        }
+
+        .valuesSide {
+            .boardCol {
+                flex-basis: 80px;
+            }
+
+            .sep {
+                min-width: 5px !important;
+                margin: 0 1px !important;
+            }
+        }
+    }
+
+    .materialOption {
+        margin: 1px;
+        max-width: 160px;
+        min-width: 160px;
+        min-height: 30px;
+
+        .label {
+            padding-top: 1px;
+            font-size: 12px;
+        }
+    }
+
 }
