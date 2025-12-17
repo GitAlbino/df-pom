@@ -19,21 +19,42 @@ var jobsInfosMaxScans = 1000;
 function cl(msg) { console.log(msg); }
 
 
+
+
+app.whenReady().then(async () => {
+
+    //read config file if exists
+    await ReadConfig();
+
+    while (!PathsReady()) {
+        await RequirePaths();
+    }
+
+    CreateWindow();
+})
+
+
+
+
+
 ipcMain.handle("GetFileHandle", async () => {
     return config.ordersFilePath;
 });
 
 
-function ReadConfig() {
+async function ReadConfig() {
     if (fs.existsSync(CONFIG_PATH)) {
+        cl("Reading existing config...");
         const configData = fs.readFileSync(CONFIG_PATH, "utf-8");
         config = JSON.parse(configData);
     } else {
+        cl("Creating new config...");
         CreateConfigFile();
     }
 }
 
-function SaveConfig() {
+async function SaveConfig() {
+    cl("Saving config...");
     fs.writeFileSync(CONFIG_PATH, JSON.stringify(config));
 }
 
@@ -41,7 +62,6 @@ function CreateConfigFile() {
     config = {};
     config.ordersFilePath = "";
     config.dwarfPath = "";
-    config.optionalCols = false;
     fs.writeFileSync(CONFIG_PATH, JSON.stringify(config));
 }
 
@@ -96,6 +116,7 @@ ipcMain.handle("GetGameInfos", async (e) => {
                 } catch (e) {
                     data = { error: { title: "Data parsing error", msg: "An error occurred while parsing data pulled from Dwarf Fortress. <br>" + e } };
                     data.context = "GetGameInfos3";
+                    readingStuff = false;
                     cl(data);
                     resolve(data);
                 }
@@ -172,6 +193,7 @@ ipcMain.handle("GetJobsInfos", async () => {
                     data.context = "GetJobsInfos3";
                     cl(data);
                     resolve(data);
+                    readingStuff = false;
                     return;
 
                 }
@@ -239,6 +261,7 @@ ipcMain.handle("GetStocks", async () => {
                         data = { error: { title: "Execution error", msg: "An error occurred while parsing data pulled from Dwarf Fortress.<br>" + e } };
                         data.context = "GetStocks3";
                         cl(data);
+                        readingStuff = false;
                         resolve(data);
                         return;
                     }
@@ -267,12 +290,19 @@ ipcMain.handle("ResetAppPaths", async () => {
     CreateWindow();
 });
 
-ipcMain.handle("ReadFile", async () => {
-    if (!PathsReady())
+ipcMain.handle("ReadOrdersFile", async () => {
+    if (!PathsReady()) {
+        cl("Paths not ready, requesting paths...");
+        RequirePaths();
         return;
+    }
 
-    if (readingStuff)
+    if (readingStuff) {
+        cl("Already reading stuff, returning...");
         return;
+    }
+
+    cl("Reading orders file...");
     readingStuff = true;
 
     return new Promise((resolve, reject) => {
@@ -310,6 +340,7 @@ ipcMain.handle("ReadFile", async () => {
                 } catch (e) {
                     data = { error: { title: "Execution error", msg: "An error occurred while trying to read exported orders." + e } };
                     data.context = "ReadFile3";
+                    readingStuff = false;
                     cl(data);
                     reject(e);
                 }
@@ -322,16 +353,17 @@ ipcMain.handle("ReadFile", async () => {
 
 
 
-ipcMain.handle("WriteFile", async (e, content) => {
+ipcMain.handle("WriteOrdersFile", async (e, content) => {
     const fs = require("fs").promises;
+    cl("Writing orders file...");
     var exportPath = config.ordersFilePath.replace(".json", "_out.json");
     if (config.ordersFilePath) {
         await fs.writeFile(exportPath, content, "utf-8");
-        SendToDF();
+        await SendToDF();
     }
 });
 
-function SendToDF() {
+async function SendToDF() {
     if (!PathsReady())
         return;
 
@@ -344,59 +376,50 @@ function SendToDF() {
     let args1 = ["orders", "clear"];
     let args2 = ["orders", "import", filename + "_out"];
 
-    fs.access(path, fs.constants.F_OK | fs.constants.X_OK, (err) => {
-        if (err) {
-            data = { error: { title: "Could not access dfhack-run.exe", msg: "Cannot access dfhack-run.exe. Please check the Dwarf Fortress path in settings." } };
-            data.context = "SendToDF1";
-            data.buttons = ["CONTINUE", "RESET APP PATHS"];
-            cl(data)
-            resolve(data);
-            return;
-        }
-
-        //clear orders command
-        execFile(path, args1, (error) => {
-            if (error) {
-                data = { error: { title: "Execution error", msg: "An error occurred while executing dfhack-run.exe. Check if DFHack installed and if a Fortress mode game is running." } };
-                data.context = "SendToDF2";
+    try {
+        fs.access(path, fs.constants.F_OK | fs.constants.X_OK, (err) => {
+            if (err) {
+                data = { error: { title: "Could not access dfhack-run.exe", msg: "Cannot access dfhack-run.exe. Please check the Dwarf Fortress path in settings." } };
+                data.context = "SendToDF1";
                 data.buttons = ["CONTINUE", "RESET APP PATHS"];
-                cl(data);
+                cl(data)
                 resolve(data);
                 return;
             }
 
-            //import orders command
-            execFile(path, args2, (error) => {
+            //clear orders command
+            execFile(path, args1, (error) => {
                 if (error) {
                     data = { error: { title: "Execution error", msg: "An error occurred while executing dfhack-run.exe. Check if DFHack installed and if a Fortress mode game is running." } };
-                    data.context = "SendToDF3";
+                    data.context = "SendToDF2";
                     data.buttons = ["CONTINUE", "RESET APP PATHS"];
                     cl(data);
                     resolve(data);
                     return;
                 }
-            });
-        })
 
-    });
+                //import orders command
+                execFile(path, args2, (error) => {
+                    if (error) {
+                        data = { error: { title: "Execution error", msg: "An error occurred while executing dfhack-run.exe. Check if DFHack installed and if a Fortress mode game is running." } };
+                        data.context = "SendToDF3";
+                        data.buttons = ["CONTINUE", "RESET APP PATHS"];
+                        cl(data);
+                        resolve(data);
+                        return;
+                    }
+                });
+
+                readingStuff = false;
+            })
+
+        });
+    } catch (e) {
+        cl(e);
+        readingStuff = false;
+    }
 }
 
-ipcMain.handle("ToggleOption", (e, name, noChange) => {
-    cl("Toggle option " + name);
-    ReadConfig();
-
-    if (!config.hasOwnProperty(name)) {
-        config[name] = false;
-        SaveConfig();
-    }
-
-    if (!noChange) {
-        config[name] = !config[name];
-        SaveConfig();
-        cl("prout")
-    }
-    return config[name];
-});
 
 ipcMain.handle("CycleSizeMode", (e, noChange) => {
     ReadConfig();
@@ -415,44 +438,22 @@ ipcMain.handle("CycleSizeMode", (e, noChange) => {
 });
 
 
-ipcMain.handle("BoardSelectedMaterials", (e, setMaterials) => {
-    ReadConfig();
+ipcMain.handle("GetSetConfig", async (e, newConfig) => {
+    await ReadConfig();
 
-    if (config.selectedBoardMaterials == null) {
-        config.selectedBoardMaterials = [
-            "!0ALL",
-            "!1WOODLOG",
-            "!2ROCKMETAL",
-            "!3BONES",
-            "!4LEATHER",
-            "!5PLANTS",
-        ];
+    if (newConfig != null) {
+        config = newConfig;
+        await SaveConfig();
     }
 
-    if (setMaterials != null)
-        config.selectedBoardMaterials = setMaterials;
-
-    SaveConfig();
-
-    config.selectedBoardMaterials = [...new Set(config.selectedBoardMaterials)];
-    return config.selectedBoardMaterials;
+    return config;
 });
-
-app.whenReady().then(async () => {
-
-    //read config file if exists
-    ReadConfig();
-
-    while (!PathsReady()) {
-        await RequirePaths();
-    }
-
-    CreateWindow();
-})
-
 
 
 function PathsReady() {
+    if (!config.dwarfPath || config.dwarfPath.length == 0)
+        return false;
+
     var requiredFile = path.join(config.dwarfPath, "Dwarf Fortress.exe");
     if (!fs.existsSync(requiredFile)) {
         cl("Dwarf Fortress.exe not found in " + config.dwarfPath);
@@ -480,8 +481,7 @@ async function RequirePaths() {
 
     config.dwarfPath = canceled ? null : filePaths[0];
     config.ordersFilePath = path.join(config.dwarfPath, "dfhack-config", "orders", ORDERS_NAME);
-    cl(config.ordersFilePath);
-    SaveConfig();
+    await SaveConfig();
 }
 
 const CreateWindow = () => {
@@ -595,3 +595,4 @@ function ProcessStockData(rawData) {
     var response = { completed: completed, nextIndex: stocksReaderStartIndex, batchSize: stocksReaderMaxScans, stocks: stocks };
     return response;
 }
+

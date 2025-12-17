@@ -6,6 +6,14 @@ local readObject;
 local readField;
 local readFieldResult = ''
 local flags = ''
+local IS_WOOD_FLAG = 78
+local IS_LEATHER_FLAG = 29
+local IS_DYE_FLAG = 33
+local IS_METAL_FLAG = 47
+local IS_GEM_FLAG = 48
+local IS_GLASS_FLAG = 49
+local IS_STONE_FLAG = 60
+local IS_CERAMIC_FLAG = 74
 
 output = output .. '\"job_material_category\" : {'
 for i = 0, df.job_material_category._last_item do
@@ -47,14 +55,44 @@ for k,v in pairs(df.global.world.raws.itemdefs.all) do
 end
 output = output .. '},'
 
-output = output ..'\"materials\" : ['
+output = output ..'\"materials\" : {'
 for index,mat in ipairs(df.global.world.raws.inorganics.all) do
-    output = output .. '\"INORGANIC:' .. tostring(mat.id) .. '\",'
+    output = output .. '\"INORGANIC:' .. tostring(mat.id) .. '\":{'
+    output = output .. '\"Types\":['
+    if (mat.material.flags[IS_LEATHER_FLAG]) then
+        output = output .. '\"LEATHER\",'
+    end
+    if (mat.material.flags[IS_DYE_FLAG]) then
+        output = output .. '\"DYE\",'
+    end
+    if (mat.material.flags[IS_METAL_FLAG]) then
+        output = output .. '\"METAL\",'
+    end
+    if (mat.material.flags[IS_GEM_FLAG]) then
+        output = output .. '\"GEM\",'
+    end
+    if (mat.material.flags[IS_GLASS_FLAG]) then
+        output = output .. '\"GLASS\",'
+    end
+    if (mat.material.flags[IS_STONE_FLAG]) then
+        output = output .. '\"STONE\",'
+    end
+    if (mat.material.flags[IS_CERAMIC_FLAG]) then
+        output = output .. '\"CERAMIC\",'
+    end
+    output = output .. '],'
+    output = output .. '},'
 end
 for index,mat in ipairs(df.global.world.raws.plants.all) do
-    output = output .. '\"PLANT:' .. tostring(mat.id) .. '\",'
+    output = output .. '\"PLANT:' .. tostring(mat.id) .. '\":{\"Types\":['
+    if (mat.flags[IS_WOOD_FLAG]) then
+        output = output .. '\"WOOD\",'
+    end
+    output = output .. ']},'
 end
-output = output .. '],'
+
+output = output .. '},'
+
 
 
 output = output ..'\"material_flags\" : {'

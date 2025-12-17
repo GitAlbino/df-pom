@@ -42,19 +42,72 @@ svg {
     z-index: 1;
 }
 
+@keyframes fadeOut {
+    0% {
+        opacity: 0;
+    }
+
+    15% {
+        opacity: 1;
+    }
+
+    100% {
+        opacity: 0;
+    }
+}
+
 body {
     font-family: system-ui;
     background: #000;
     font-size: 16px;
     text-align: center;
 
+    .traces {
+        position: absolute;
+        display: block;
+        flex-direction: column;
+        z-index: 50;
+        position: fixed;
+        top: 5px;
+        left: 5px;
+        max-height: 30px;
+        min-width: 35px;
+        padding-right: 35px;
+        overflow: hidden;
+
+        #hideLogs {
+            position: absolute;
+            z-index: 100;
+            top: 0;
+            right: 0;
+            width: auto;
+        }
+
+        div {
+            width: 10px;
+            height: 10px;
+            color: #0000;
+            font-size: 0;
+
+            background-color: #666;
+            padding: 0;
+            border-radius: 3px;
+            opacity: 0.8;
+            margin: 0 0 2px 0;
+            animation: fadeOut 1s forwards;
+        }
+    }
+
+
     &.noFileSelected {
-        .tools *:not(#openFile) {
+
+        .tools,
+        .toolsSide {
             display: none !important;
         }
     }
 
-    &.option_lessColumns {
+    &.toggleLessColumns {
         #extraCols {
             span {
                 background-color: #4AD;
@@ -64,20 +117,68 @@ body {
         .optionalCol {
             display: none !important;
         }
-
     }
 
-    &.option_stock_hide_empty {
-        .boardMode {
-            .boardTable .boardCell[totalval="0"] {
-                display: none !important;
-            }
-
-            #hideEmpty .ico {
-                background-color: #49B !important;
+    &.toggleAutoReadOrders {
+        #autoReadOrders {
+            span {
+                background-color: #4AD;
             }
         }
     }
+
+    &.toggleAutoSaveOrders {
+        #autoSaveOrders {
+            span {
+                background-color: #4AD;
+            }
+        }
+    }
+
+    &.toggleAutoReadStocks {
+        #autoReadStocks {
+            span {
+                background-color: #4AD;
+            }
+        }
+    }
+
+    &.toggleHideLogs {
+        .traces {
+            max-height: none;
+
+            div {
+                color: #FFF;
+                background-color: #222;
+                width: auto;
+                height: auto;
+                font-size: 100%;
+                animation: fadeOut 3s forwards;
+            }
+        }
+
+        #hideLogs {
+            span {
+                background-color: #4AD;
+            }
+        }
+    }
+
+
+    &.toggleStocksToolsSide {
+        #ordersSwapToolSide {
+            span {
+                background-color: #4AD;
+            }
+        }
+
+        .toolsSide {
+            right: auto !important;
+            left: -55px !important;
+        }
+    }
+
+
 }
 
 .infoBox {
@@ -159,6 +260,7 @@ button {
             &.ico {
                 background-color: #777;
                 color: #FFF;
+                aspect-ratio: 1 / 1;
             }
         }
     }
@@ -185,14 +287,22 @@ button {
             background: #666;
             font-size: 20px;
             height: 100%;
-            width: 100%;
-            min-width: 30px;
+            aspect-ratio: 1 / 1;
             line-height: 100%;
+            flex-shrink: 0;
+            flex-grow: 0;
 
             svg {
                 width: 20px;
                 height: 20px;
             }
+        }
+
+        &.txt {
+            flex-grow: 1;
+            flex-shrink: 1;
+            text-align: center;
+            padding: 0 10px;
         }
     }
 
@@ -259,17 +369,6 @@ input.inputNumber::-webkit-inner-spin-button {
     width: 100vw;
     flex-shrink: 0;
 
-
-    .tools {
-        display: flex;
-        flex-wrap: wrap;
-        align-items: center;
-        justify-content: center;
-        background: #222;
-        padding: 5px;
-    }
-
-
     .tabs {
         display: flex;
         justify-content: center;
@@ -307,19 +406,72 @@ input.inputNumber::-webkit-inner-spin-button {
     }
 }
 
-.option_toolsSide {
-    .rawMode {
-        flex-direction: row-reverse;
+.tools {
+    display: flex;
+    justify-content: center;
+    background: #222;
+    padding: 5px;
+    margin: 15px;
+}
+
+.toolsSide {
+    position: absolute;
+    display: flex;
+    top: 0;
+    right: -55px;
+    flex-direction: column;
+    justify-content: flex-start;
+    padding: 0;
+    z-index: 50;
+
+    background: #222;
+
+    button {
+        display: block;
+        padding: 0;
+        margin: 5px;
+        padding: 0;
+        flex-shrink: 0;
+        flex-grow: 0;
+        aspect-ratio: 1 / 1;
+
+        span {
+            display: block;
+            flex-grow: 0;
+            flex-shrink: 0;
+            width: 100%;
+            height: 100%;
+
+            &.ico {
+                width: 100%;
+                height: 100%;
+            }
+
+            svg {
+                width: 100%;
+                height: 100%;
+            }
+        }
+    }
+
+    .sep {
+        min-height: 15px;
+        margin: 0;
+        background-color: #000;
     }
 }
 
 .rawMode {
-    display: inline-flex;
+    display: flex;
+    flex-direction: column;
+    align-content: center;
+    align-items: center;
+    justify-content: center;
+
     z-index: 1;
-    justify-content: flex-start;
-    align-items: flex-start;
     padding: 0;
-    margin: 50px 0;
+    margin: 0;
+    width: 100%;
     flex-shrink: 1;
     flex-grow: 1;
     flex-basis: 100%;
@@ -327,45 +479,6 @@ input.inputNumber::-webkit-inner-spin-button {
     overflow-x: visible;
     scrollbar-width: none;
 
-
-    .tools {
-        position: sticky;
-        display: flex;
-        flex-direction: column;
-        justify-content: flex-start;
-        top: 0;
-        left: 0;
-        padding: 2px 0;
-        z-index: 50;
-
-        background: #111;
-
-        button {
-            padding: 0;
-            margin: 5px;
-            width: 35px;
-            height: 35px;
-
-            span {
-                display: flex;
-                flex-grow: 1;
-                width: 100%;
-                height: 100%;
-                padding: 5px;
-
-                svg {
-                    width: 100%;
-                    height: 100%;
-                }
-            }
-        }
-
-        .sep {
-            min-height: 15px;
-            margin: 0;
-            background-color: #000;
-        }
-    }
 
     .ordersTable {
         position: relative;
@@ -443,7 +556,7 @@ input.inputNumber::-webkit-inner-spin-button {
                 height: 100%;
                 background: linear-gradient(#0004, #0000 12%);
                 pointer-events: none;
-                z-index: 400;
+                z-index: 15;
             }
 
             &:hover {
@@ -689,7 +802,7 @@ input.inputNumber::-webkit-inner-spin-button {
                 line-height: 40px;
                 background-color: rgb(15, 15, 15);
                 text-align: left;
-                z-index: 100;
+                z-index: 10;
 
                 &.limitCols {
                     height: 20px;
@@ -1070,12 +1183,7 @@ input.inputNumber::-webkit-inner-spin-button {
 }
 
 .boardMaterialsPicker {
-    position: fixed;
-    display: flex;
-    flex-direction: column;
-    flex-wrap: wrap;
-    align-content: flex-start;
-    justify-content: flex-start;
+    position: relative;
     top: 50%;
     left: 50%;
     max-height: 75vh;
@@ -1087,20 +1195,42 @@ input.inputNumber::-webkit-inner-spin-button {
 
     background-color: #111;
     padding: 40px 10px 10px 10px;
-    overflow-x: auto;
-    scrollbar-width: thin;
     transform: translate(-50%, -50%);
+    overflow: hidden;
+
+    .materialsList {
+        display: flex;
+        flex-direction: column;
+        flex-wrap: wrap;
+        align-content: flex-start;
+        justify-content: flex-start;
+        min-width: 100%;
+        min-height: 100%;
+        max-width: 100%;
+        max-height: 100%;
+        overflow-x: auto;
+        overflow-y: hidden;
+        scrollbar-width: thin;
+    }
 
     .filter {
         position: absolute;
+        display: flex;
+        justify-content: center;
         top: 0px;
         left: 50%;
         transform: translateX(-50%);
         width: 100%;
         background-color: #222;
 
+        button {
+            height: 100%;
+            width: auto;
+            aspect-ratio: 1/1;
+            margin-left: 5px;
+        }
+
         input {
-            height: 28px;
             width: 300px;
             font-size: 18px;
             text-align: center;
@@ -1131,6 +1261,14 @@ input.inputNumber::-webkit-inner-spin-button {
         flex-shrink: 0;
         max-height: 0;
         overflow: visible;
+
+        &[maincat="-1"] {
+            font-weight: bold;
+
+            div {
+                background-color: #445;
+            }
+        }
 
         &:hover {
             z-index: 10;
@@ -1165,38 +1303,82 @@ input.inputNumber::-webkit-inner-spin-button {
                 align-items: center;
                 justify-content: center;
 
-                span {
+                span.tag {
                     font-size: 80%;
-                    color: #111;
+                    color: #0009;
+                }
 
-                    &.tag {
-                        position: absolute;
+                div.tags {
+                    position: absolute;
+                    display: flex;
+                    flex-direction: row;
+                    top: 0;
+                    left: 0;
+                    width: 10%;
+                    height: 100%;
+                    font-size: 0;
+                    padding: 0;
+
+                    span {
                         display: block;
-                        top: 0;
-                        left: 0;
-                        width: 10%;
+                        align-items: center;
+                        justify-content: center;
+                        flex-shrink: 1;
+                        flex-grow: 1;
+                        flex-basis: 1px;
                         height: 100%;
-                        font-size: 0;
-                        padding: 1px 2px;
 
-                        &.wood {
-                            background-color: #AF52;
+
+                        &.f.STONE {
+                            background-color: #9996;
                         }
 
-                        &.inorganic {
-                            background-color: #0002;
+                        &.f.METAL {
+                            background-color: #0116;
                         }
 
-                        &.plant {
-                            background-color: #00F2;
+                        &.f.GEM {
+                            background-color: #08D6;
                         }
 
-                        &.leather {
-                            background-color: #F002;
+                        &.CERAMIC {
+                            background-color: #F006;
                         }
 
-                        &.bone {
-                            background-color: #FFF2;
+                        &.WOOD {
+                            background-color: #5706;
+                        }
+
+                        &.PLANT {
+                            background-color: #0716;
+                        }
+
+                        &.LEATHER {
+                            background-color: #3106;
+                        }
+
+                        &.BONE {
+                            background-color: #FFF6;
+                        }
+
+                        &.MEAT {
+                            background-color: #C006;
+                        }
+
+                        &.GLASS {
+                            background-color: #AAF6;
+                        }
+
+                        &.COAL {
+                            background-color: #0006;
+                        }
+
+                        &.DRINK {
+                            background-color: #F086;
+                        }
+
+                        &.OTHER {
+                            background-color: #FF06;
                         }
                     }
                 }
@@ -1240,16 +1422,8 @@ input.inputNumber::-webkit-inner-spin-button {
     max-height: 80vh;
     overflow: hidden;
 
-    margin: 20px 0 80px 0;
+    margin: 0;
     scrollbar-width: none;
-
-    .tools {
-        display: flex;
-        flex-direction: row;
-        width: 100%;
-        justify-content: center;
-        margin: 10px;
-    }
 
     .boardTableHeader {
         display: flex;
@@ -1273,10 +1447,17 @@ input.inputNumber::-webkit-inner-spin-button {
             overflow: hidden;
             line-height: 95%;
 
-            background: #333;
+            background: #444;
             color: #CCC;
 
             transition: background-color 0.5s ease-out;
+
+            &[maincat] {
+                background: #334;
+                font-weight: bold;
+                color: #FFF;
+                text-transform: uppercase;
+            }
 
             * {
                 margin: 0 4px;
@@ -1413,7 +1594,7 @@ input.inputNumber::-webkit-inner-spin-button {
 
                 .boardCell {
                     position: relative;
-                    background-color: rgb(25, 25, 60);
+                    background-color: rgb(35, 35, 60);
                     color: #EEE;
                     overflow: hidden;
                     white-space: wrap;
@@ -1431,7 +1612,7 @@ input.inputNumber::-webkit-inner-spin-button {
                     }
 
                     &[totalVal="0"] {
-                        opacity: 0.3;
+                        opacity: 0.35;
                         background: #333;
 
                         &.editable {
@@ -1440,6 +1621,7 @@ input.inputNumber::-webkit-inner-spin-button {
                             input.wanted {
                                 background-color: #444;
                             }
+
                         }
 
                     }
@@ -1474,7 +1656,7 @@ input.inputNumber::-webkit-inner-spin-button {
                         }
 
                         .stock {
-                            color: #585;
+                            color: #7A7;
                             text-align: right;
                             flex-basis: 50%;
                             width: 1px;
@@ -1540,7 +1722,7 @@ input.inputNumber::-webkit-inner-spin-button {
 body.sizemode_3 {
     .contentHead {
         button {
-            font-size: 18px;
+            font-size: 22px;
 
             span:nth-child(2) {
                 padding: 15px 20px;
@@ -1550,6 +1732,15 @@ body.sizemode_3 {
 
     .keyInfo {
         font-size: 18px !important;
+    }
+
+    .tools,
+    .toolsSide {
+        button {
+            display: flex;
+            height: 35px;
+            font-size: 22px;
+        }
     }
 
     .rawMode {
@@ -1622,7 +1813,7 @@ body.sizemode_3 {
         }
     }
 
-    &.option_lessColumns {
+    &.toggleLessColumns {
         .ordersTable {
             min-width: 811px;
         }
@@ -1702,6 +1893,17 @@ body.sizemode_2 {
         font-size: 15px !important;
     }
 
+
+    .tools,
+    .toolsSide {
+        button {
+            display: flex;
+            height: 32px;
+            font-size: 17px;
+        }
+    }
+
+
     .rawMode {
         .ordersTable {
             font-size: 17px;
@@ -1772,7 +1974,7 @@ body.sizemode_2 {
         }
     }
 
-    &.option_lessColumns {
+    &.toggleLessColumns {
         .ordersTable {
             min-width: 841px;
         }
@@ -1851,6 +2053,16 @@ body.sizemode_1 {
         font-size: 12px !important;
     }
 
+    .tools,
+    .toolsSide {
+        button {
+            display: flex;
+            height: 29px;
+            font-size: 15px;
+        }
+    }
+
+
     .rawMode {
         .ordersTable {
             font-size: 15px;
@@ -1907,7 +2119,7 @@ body.sizemode_1 {
         }
     }
 
-    &.option_lessColumns {
+    &.toggleLessColumns {
         .ordersTable {
             min-width: 660px;
         }
@@ -1976,6 +2188,15 @@ body.sizemode_0 {
         font-size: 11px !important;
     }
 
+    .tools,
+    .toolsSide {
+        button {
+            display: flex;
+            height: 25px;
+            font-size: 12px;
+        }
+    }
+
     .rawMode {
         .ordersTable {
             font-size: 12px;
@@ -2037,7 +2258,7 @@ body.sizemode_0 {
 
     }
 
-    &.option_lessColumns {
+    &.toggleLessColumns {
         .ordersTable {
             min-width: 578px;
         }
