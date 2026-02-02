@@ -31,6 +31,7 @@ var lastGameStatusCheck = 0;
 var lastPopData;
 var lastFavorites;
 var modificationsPending;
+var initDone = false;
 
 var itemJob = [];
 var itemHasJob = {};
@@ -172,7 +173,13 @@ async function InitData() {
     initToast = Toast("<i>Initializing...</i>", true);
     try {
         if (!config.disclaimerAccepted)
-            $(".disclaimer")[0].classList.remove("hidden");
+            ShowDisclaimer();
+
+        var lastVersion = config.lastSeenChangelogVersion;
+        var newVersion = config.version;
+
+        if (lastVersion != newVersion)
+            ShowChangelog();
 
         ApplyConfigClasses();
 
@@ -559,6 +566,7 @@ async function ReadJobs() {
 async function ReadJobsBatch() {
     data = await window.api.GetJobsInfos();
 
+    //check if data has a "completed" property
     if (data == null) {
         cl("error: null data");
         return false;
@@ -569,6 +577,12 @@ async function ReadJobsBatch() {
         return false;
     }
     ClosePopInfoWaiting("Jobs");
+
+    if (data.completed === undefined) {
+        Trace("Erroneous jobs reading: missing 'completed' property");
+        await pause(400);
+        return false;
+    }
 
     data.jobs.forEach(job => {
         tempJobs.push(job);
@@ -1157,9 +1171,15 @@ async function ReadOrders() {
 
     json = await window.api.ReadOrdersFile();
 
-    if (json == null) {
+    if (json == null || json == "") {
         waitForOrdersOperation = false;
-        Trace("Reading orders: null.");
+        Trace("Reading orders: null/empty.");
+        return;
+    }
+
+    if (json[0] != "[") {
+        waitForOrdersOperation = false;
+        Trace("Reading orders: invalid format.");
         return;
     }
 
@@ -1233,7 +1253,7 @@ function UpdateStocksWanted() {
         if (!job)
             return;
 
-        item = GetJobItem(job);
+        let item = GetJobItem(job);
         if (!item) {
             cl("No item found for job id " + jobId);
             cl(job);
@@ -1911,6 +1931,12 @@ async function SaveConfig() {
 
 async function CallGetSetConfig(newConfig) {
     config = await window.api.GetSetConfig(newConfig);
+
+    Object.entries(config).forEach((entry) => {
+        key = entry[0];
+        value = entry[1];
+        $("input[id='config_" + key + "']").forEach(input => { input.value = value; });
+    });
 }
 
 async function ToggleOption(name, noSwitch = false) {
@@ -1990,19 +2016,8 @@ function ToggleDeleteOrder(order, skipUpdate = false) {
 
 
 function SetTab(tab) {
-    switch (tab) {
-        case "inventory":
-            ToggleOption("tabInventory");
-            break;
-
-        case "orders":
-            ToggleOption("tabOrders");
-            break;
-
-        case "smelting":
-            ToggleOption("tabSmelting");
-            break;
-    }
+    tab = tab.charAt(0).toUpperCase() + tab.slice(1);
+    ToggleOption("tab" + tab);
 }
 
 async function CycleSizeMode(noChange) {
@@ -2234,11 +2249,11 @@ function SetupOrderFromJob(order, job) {
 
 
 function GetOrderBatchSize() {
-    if (!Number.isInteger(config.orderBatchSize) || config.orderBatchSize < 1) {
-        config.orderBatchSize = 6;
+    if (!Number.isInteger(parseInt(config.orderBatchSize)) || config.orderBatchSize < 1) {
+        config.orderBatchSize = 3;
         SaveConfig();
     }
-    return config.orderBatchSize;
+    return parseInt(config.orderBatchSize);
 }
 
 function FindOrdersForJob(job) {
@@ -2604,11 +2619,7 @@ function FinalizeStocksData() {
         }
     });
 
-    itemsWithCapacity = Object.values(gm.items).filter(i => i.container_capacity > 0).map(i => i.subtypeName);
-    itemsWithCapacity.push("BARREL");
-    itemsWithCapacity.push("BUCKET");
-    itemsWithCapacity.push("BAG");
-    itemsWithCapacity.push("BIN");
+    itemsWithCapacity = Object.values(gm.items).filter(i => i.container_capacity > 0).map(i => i.subtypeName != "" ? i.subtypeName : i.typeName);
 }
 
 function ProcessStockLine(item, matsQtts) {
@@ -2643,7 +2654,7 @@ function FillStocksTable() {
 
     var itemsPool = GetStockPool();
     itemsPool.forEach(itemName => {
-        item = gm.items[itemName];
+        let item = gm.items[itemName];
         if (!item) {
             cl("Unknown stock item: " + itemName);
             return;
@@ -3255,7 +3266,7 @@ function OrderEdited(tag) {
                     let item = job.io.out[0].item;
                     var flags = job.io.out[0].flags ?? [];
                     if (item && (itemsWithCapacity.includes(item.typeName) || itemsWithCapacity.includes(item.subtypeName) || item.container_capacity > 0))
-                        flags.push("empy");
+                        flags.push("empty");
 
                     if (flags.length > 0) {
                         var fs = ""
@@ -4184,6 +4195,24 @@ function CompleteJobInfos(job) {
     if (job.reaction != null) {
         //by reactions (easy mode)
 
+        if (job.reactionName == "BREW_DRINK_FROM_PLANT") {
+            key = "DRINK!PLANT/ALL";
+            itemJob[key] = job;
+            itemHasJob["DRINK!PLANT"] = true;
+            gm.items["DRINK!PLANT"] = JSON.parse(JSON.stringify(gm.items["DRINK"]))
+            gm.items["DRINK!PLANT"].isTypeOnly = false;
+            gm.items["DRINK!PLANT"].subtypeName = "PLANT";
+            gm.items["DRINK!PLANT"].name = "Drink (from plants)"
+        } else if (job.reactionName == "BREW_DRINK_FROM_PLANT_GROWTH") {
+            key = "DRINK!FRUIT/ALL";
+            itemJob[key] = job;
+            itemHasJob["DRINK!FRUIT"] = true;
+            gm.items["DRINK!FRUIT"] = JSON.parse(JSON.stringify(gm.items["DRINK"]))
+            gm.items["DRINK!FRUIT"].isTypeOnly = false;
+            gm.items["DRINK!FRUIT"].subtypeName = "FRUIT";
+            gm.items["DRINK!FRUIT"].name = "Drink (from fruits)"
+        }
+
         if (job.reaction.products != null) {
             var first = true;
             job.reaction.products.forEach(p => {
@@ -4248,6 +4277,15 @@ function CompleteJobInfos(job) {
 
             if (jtn == "ConstructChest") {
                 newOut.item = gm.items["BOX"];
+                return;
+            }
+
+            if (jtn == "MakeCheese") {
+                newOut.item = gm.items["MakeCheese"];
+                newIn.flags = ["unrotten", "milk"];
+                key = "CHEESE/ALL";
+                itemJob[key] = job;
+                itemHasJob["CHEESE"] = true;
                 return;
             }
 
@@ -4903,9 +4941,6 @@ function CompleteJobInfos(job) {
         itemHasJob[key] = true;
         var fullKey = key + matKey;
 
-        if (fullKey == "DRINK/WOOD") {
-            cl("moncul");
-        }
         itemJob[fullKey] = job;
         /*
         var allKey = key + "/ALL";
@@ -5390,6 +5425,44 @@ function ShowDisclaimer() {
     $(".disclaimer")[0].classList.remove("hidden");
 }
 
+async function ShowChangelog() {
+    await fetch("./CHANGELOG.md").then(async r => {
+        var changelog = $(".changelog")[0]
+        changelog.querySelector(".versions").innerHTML = "";
+        var versionsBlocks = (await r.text()).split("## ");
+
+        versionsBlocks.shift();
+        versionsBlocks = versionsBlocks.reverse();
+
+        versionsBlocks.forEach(block => {
+            var lines = block.split("\n");
+            var version = lines.shift().trim();
+            var div = document.createElement("div");
+            div.classList.add("versionBlock");
+            var details = document.createElement("div");
+            details.classList.add("details");
+            lines = lines.filter(line => line.trim() != "");
+            details.innerHTML = lines.join("<br>\n");
+            var versionHeader = document.createElement("h2");
+            versionHeader.innerText = version;
+
+            div.appendChild(versionHeader);
+            div.appendChild(details);
+            changelog.querySelector(".versions").appendChild(div);
+        });
+
+        changelog.classList.remove("hidden");
+        config.lastSeenChangelogVersion = config.version;
+        SaveConfig();
+    });
+}
+
+
+function CloseChangelog() {
+    $(".changelog")[0].classList.add("hidden");
+}
+
+
 
 function ToggleSmelting(element, forceRemove) {
     var smid = element.getAttribute("data-smid");
@@ -5558,6 +5631,12 @@ function GetOrderProducedItem(order) {
 
     var job = GetJobFromOrder(order);
 
+    if (job.reactionName == "BREW_DRINK_FROM_PLANT_GROWTH") {
+        return gm.items["DRINK!FRUIT"];
+    } else if (job.reactionName == "BREW_DRINK_FROM_PLANT") {
+        return gm.items["DRINK!PLANT"];
+    }
+
     if (!job)
         return null;
 
@@ -5617,6 +5696,12 @@ function UpdateChangedJobQtt(order) {
         cl("Unknown job for order id: " + order.id);
     } else {
         let item = GetJobItem(job);
+
+        if (order.jobInfo?.reactionName == "BREW_DRINK_FROM_PLANT_GROWTH") {
+            item = gm.items["DRINK!FRUIT"];
+        } else if (order.jobInfo?.reactionName == "BREW_DRINK_FROM_PLANT") {
+            item = gm.items["DRINK!PLANT"];
+        }
         if (!item) {
             cl("Unknown item for job: " + job.jobTypeName);
         } else {
@@ -5721,4 +5806,18 @@ function GetOrderOutputItemCondition(order) {
 
 function OpenLink(link) {
     window.api.OpenLink(link);
+}
+
+
+function SaveSetting(name, value) {
+    config[name] = value;
+    SaveConfig();
+
+    switch (name) {
+        case "orderBatchSize":
+            orders.forEach(order => {
+                SetOrderTargetQtt(order, GetOrderTargetQtt(order));
+            });
+            break;
+    }
 }

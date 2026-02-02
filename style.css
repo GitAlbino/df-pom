@@ -372,6 +372,7 @@ button {
 
 .toggleTabInventory #tabInventoryButton,
 .toggleTabSmelting #tabSmeltingButton,
+.toggleTabSettings #tabSettings,
 .toggleTabOrders #tabOrdersButton {
     z-index: 4;
     top: 3px;
@@ -397,6 +398,10 @@ button {
 }
 
 .toggleTabSmelting .smeltingTab {
+    display: flex !important;
+}
+
+.toggleTabSettings .settingsTab {
     display: flex !important;
 }
 
@@ -807,6 +812,7 @@ body {
 
 .ordersTab,
 .smeltingTab,
+.settingsTab,
 .inventoryTab {
     display: none;
     flex-wrap: nowrap;
@@ -2656,6 +2662,51 @@ body {
     }
 }
 
+.settingsTab {
+    flex-shrink: 1;
+    height: 100%;
+    align-items: flex-start;
+
+    .settingsContent {
+        background-color: var(--color-bgc);
+        padding: 5px 10px;
+
+        .setting {
+            display: flex;
+            background-color: var(--color-bgd);
+            padding: 10px 10px;
+            max-width: 400px;
+
+            p {
+                font-weight: bold;
+                color: var(--color-1a);
+                margin: 2px 5px;
+                min-width: 120px;
+            }
+
+            &>div {
+                display: flex;
+                flex-direction: column;
+
+                input {
+                    width: 100px;
+                    margin-bottom: 3px;
+                    padding: 1px 3px;
+                    color: var(--color-txta);
+
+                    &:focus {
+                        color: var(--color-txtj);
+                    }
+                }
+
+                span {
+                    color: var(--color-txte);
+                }
+            }
+        }
+    }
+}
+
 .orderToolZone {
     display: flex;
     position: absolute;
@@ -2731,6 +2782,10 @@ body {
         align-content: center;
     }
 
+    a {
+        cursor: pointer;
+    }
+
     .kofi {
         display: flex;
         background-color: #2c4772;
@@ -2741,6 +2796,7 @@ body {
         text-decoration: none;
         justify-content: center;
         align-items: center;
+        cursor: pointer;
 
         &:hover {
             background-color: #3b5a99;
@@ -2760,7 +2816,8 @@ body {
 }
 
 
-.disclaimer {
+.disclaimer,
+.changelog {
     position: absolute;
     display: flex;
     z-index: 1000;
@@ -2770,6 +2827,10 @@ body {
     height: 100vh;
     justify-content: center;
     align-items: center;
+
+    &.changelog {
+        z-index: 900;
+    }
 
     .bg {
         position: absolute;
@@ -2840,6 +2901,26 @@ body {
 }
 
 
+.changelog {
+    h2 {
+        color: var(--color-1a);
+        font-size: 120%;
+        font-weight: normal;
+        margin: 3px 0;
+    }
+
+    .versions {
+        display: block !important;
+        padding:10px;
+        border: solid 1px var(--color-txtg);
+        overflow-y: auto;
+        max-height: 500px;
+
+        .versionBlock {
+            margin:20px;
+        }
+    }
+}
 
 @keyframes fadeInOut {
     0% {

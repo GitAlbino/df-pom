@@ -144,6 +144,31 @@ function CreateConfigFile() {
     config = {};
     config.ordersFilePath = "";
     config.dwarfPath = "";
+    config.favoriteStockItems = [
+        "BED",
+        "TABLE",
+        "CHAIR",
+        "DOOR",
+        "BOX",
+        "CABINET",
+        "BARREL",
+        "DRINK",
+        "BLOCKS",
+        "TOOLS!ITEM_TOOL_WHEELBARROW",
+        "FOOD!ITEM_FOOD_BISCUITS",
+        "FOOD!ITEM_FOOD_STEW",
+        "FOOD!ITEM_FOOD_ROAST",
+        "DRINK",
+        "DRINK!FRUIT",
+        "DRINK!PLANT"
+    ];
+    config.selectedStocksMaterialsCols = [
+        "ALL",
+        "STONE",
+        "WOOD",
+        "INORGANIC:COPPER",
+        "INORGANIC:IRON"
+    ];
     fs.writeFileSync(CONFIG_PATH, JSON.stringify(config));
 }
 
@@ -670,9 +695,9 @@ async function SendToDF() {
                         readingStuff = false;
                         return;
                     }
+                    readingStuff = false;
                 });
 
-                readingStuff = false;
             })
 
         });
