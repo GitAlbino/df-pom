@@ -69,6 +69,10 @@ var fuses = [];
 var keysDown = [];
 let keyedToasts = {};
 
+var ligniteCokeJob;
+var bituminousToCokeJob;
+var setOrderCokeNoLoop;
+
 var lastOrderRead = 0;
 var lastOrdersAccess = 0;
 const ORDER_ACCESS_MIN_DELAY = 250;
@@ -517,10 +521,11 @@ async function GetGameInfos() {
         }
     });
 
-    gm.items["CRAFTS!"] = {
+    gm.items["CRAFTS"] = {
         name: "crafts",
         subtypeName: "",
-        typeName: "CRAFTS"
+        typeName: "CRAFTS",
+        isTypeOnly: true
     };
 
     gm.items["FOOD!"] = {
@@ -528,6 +533,7 @@ async function GetGameInfos() {
         subtypeName: "",
         typeName: "FOOD"
     };
+
 
     var flags = [];
     Object.keys(gm.job_item_flags1).forEach(key => { flags.push(gm.job_item_flags1[key]) });
@@ -1884,7 +1890,7 @@ function AddNewOrder(newOrder, afterOrder = null) {
 
     newOrder.id = Math.max(...orders.filter(o => o.id != null).map(o => o.id), 10) + 1;
     if (isNaN(newOrder.id))
-        newOrder.id = 10;
+        newOrder.id = orders.length + 1;
 
     MarkEdited(newOrder);
     UpdateOrdersTable();
@@ -2094,7 +2100,10 @@ function ChangeItemStockTarget(e) {
         cl("Unknown job: " + jobId);
         return;
     }
+    SetJobTargetQtt(job, qttDesired);
+}
 
+function SetJobTargetQtt(job, qttDesired) {
     var matchingOrders = FindOrdersForJob(job);
 
     var ord;
@@ -2462,6 +2471,8 @@ function FinalizeJobsData() {
         i++;
     });
     jobSortedNames.sort();
+    ligniteCokeJob = FindJobsWith("LIGNITE_TO_COKE")[0]
+    bituminousToCokeJob = FindJobsWith("BITUMINOUS_COAL_TO_COKE")[0]
 
     //CheckJobsValidity();
 }
@@ -3794,17 +3805,22 @@ function OnGeneralKeyUp(e) {
 
         if (key == "1" || key == "&") {
             e.preventDefault();
-            SetTab("inventory");
+            SetTab("orders");
         }
 
         if (key == "2" || key == "é") {
             e.preventDefault();
-            SetTab("orders");
+            SetTab("inventory");
         }
 
         if (key == "3" || key == "\"") {
             e.preventDefault();
             SetTab("smelting");
+        }
+
+        if (key == "4" || key == "'") {
+            e.preventDefault();
+            SetTab("settings");
         }
 
         if (key == "l") {
@@ -4154,7 +4170,7 @@ if (!Array.prototype.last) {
 
 function FindJobsWith(name) {
     var low = name.toLocaleLowerCase();
-    return jobs.filter(j => j.name.toLocaleLowerCase().includes(low) || j.jobTypeName.toLocaleLowerCase().includes(low));
+    return jobs.filter(j => j.name.toLocaleLowerCase().includes(low) || j.jobTypeName.toLocaleLowerCase().includes(low) || j.reactionName?.toLocaleLowerCase().includes(low));
 }
 
 function FindStocksWith(name) {
@@ -4184,7 +4200,7 @@ function CompleteJobInfos(job) {
     //determine job item type, subtype, material...
 
     job.jobTypeName = gm.job_type[job.jobType];
-    job.isCrafts = job.name.includes(" crafts");
+    job.isCrafts = job.jobTypeName == "MakeCrafts"
 
     var seekNameUp = GetMaterialNameFromIndex(job.mat_index);
     job.material = seekNameUp ? seekNameUp : "";
@@ -4906,11 +4922,6 @@ function CompleteJobInfos(job) {
         key = 'CRAFTS' + matKey;
         itemJob[key] = job;
         itemHasJob["CRAFTS"] = true;
-
-        /*
-        key = 'CRAFTS/ALL';
-        itemJob[key] = job;
-        */
         return;
     }
 
@@ -5677,6 +5688,18 @@ function SetOrderTargetQtt(order, qttDesired) {
         if (cond.condition == "GreaterThan")
             cond.value = min;
     });
+
+    if (!setOrderCokeNoLoop) {
+        if (order.jobInfo == ligniteCokeJob) {
+            setOrderCokeNoLoop = true;
+            SetJobTargetQtt(bituminousToCokeJob, min);
+        }
+        if (order.jobInfo == bituminousToCokeJob) {
+            setOrderCokeNoLoop = true;
+            SetJobTargetQtt(ligniteCokeJob, min);
+        }
+    }
+    setOrderCokeNoLoop = false;
 
     UpdateChangedJobQtt(order);
 }
