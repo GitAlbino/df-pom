@@ -16,3 +16,11 @@
 - Tried to fix orders list getting wiped sometimes
 - Added changelog window
 - (Created a discord server: https://discord.gg/XXUqPFrY)
+
+## [0.1.3] - 2026-02-07
+- Added GRAPHS! You can now monitor your stocks evolution over time. To add a graph, click on the right side of a stocks cells, and enable the graph tab. Graphs size & update rate can be changed in the settings tab
+- Fixed a bug with manual orders creation not using the proper desired quantity
+- Added Crafts support from the stocks tab
+- Added Charcoal support from the stocks tab (requires displaying the COAL material)
+- Added Coke support from the stocks tab (requires displaying the COKE material - ordering coke with trigger both Bituminous and Lignite orders)
+- Fixed tab access shortcut keys 
