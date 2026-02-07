@@ -24,7 +24,7 @@ var gameInfoLuaUpdated = false;
 var missingDFHackError = {
     error: {
         title: "DFHack required",
-        msg: "This app requires access to DFHack / 'dfhack-run.exe'.",
+        msg: "This app requires access to DFHack / 'dfhack-run'.",
         context: "GetGameStatus1",
         buttons: ["SET DFHACK PATH"]
     }
@@ -33,6 +33,9 @@ var missingDFHackError = {
 
 function cl(msg) { console.log(msg); }
 
+function DFHackRunName() {
+    return process.platform === 'win32' ? 'dfhack-run.exe' : 'dfhack-run';
+}
 
 
 if (handleSquirrelEvent()) {
@@ -186,18 +189,12 @@ ipcMain.handle("SetDFHackPath", async () => {
 
 async function SetPath() {
     const { canceled, filePaths } = await dialog.showOpenDialog({
-        title: "Select Dwarf Fortress exectutable folder (must contain dfhack-run.exe)",
-        filters: [
-            { name: 'DFHack / Dwarf Fortress', extensions: ['exe'] },
-        ],
-        properties: ["openFile"]
+        title: "Select Dwarf Fortress folder (must contain " + DFHackRunName() + ")",
+        properties: ["openDirectory"]
     });
 
     if (canceled || filePaths.length == 0)
         return false;
-
-    //remove the filename from the path
-    filePaths[0] = path.dirname(filePaths[0]);
 
     cl("Selected DFHack path: " + filePaths[0]);
     var pathError = GetPathsReadyError();
@@ -221,20 +218,20 @@ ipcMain.handle("GetGameStatus", async (e) => {
     }
 
     return new Promise(async (resolve, reject) => {
-        let path = config.dwarfPath + "\\dfhack-run.exe";
+        let dfhackPath = path.join(config.dwarfPath, DFHackRunName());
 
-        let luaScriptPath = GetDataPath() + "\\lua\\gameStatus.lua";
+        let luaScriptPath = path.join(GetDataPath(), "lua", "gameStatus.lua");
         cl("Executing dfhack-run... " + luaScriptPath);
         let args = ["lua", "-f", luaScriptPath];
 
-        fs.access(path, fs.constants.F_OK | fs.constants.X_OK, (err) => {
+        fs.access(dfhackPath, fs.constants.F_OK | fs.constants.X_OK, (err) => {
             if (err) {
                 resolve(GetMissingDFHackError("GetGameStatus1"));
                 return;
             }
 
             var oldClipboard = clipboard.readText();
-            execFile(path, args, (error, stdout, stderr) => {
+            execFile(dfhackPath, args, (error, stdout, stderr) => {
                 let data = clipboard.readText();
                 clipboard.writeText(oldClipboard);
 
@@ -295,12 +292,12 @@ ipcMain.handle("GetGameInfos", async (e) => {
     readingStuff = true;
 
     return new Promise(async (resolve, reject) => {
-        let path = config.dwarfPath + "\\dfhack-run.exe";
+        let dfhackPath = path.join(config.dwarfPath, DFHackRunName());
 
-        let luaScriptUsePath = GetDataPath() + "\\lua\\gameInfo_use.lua";
+        let luaScriptUsePath = path.join(GetDataPath(), "lua", "gameInfo_use.lua");
         if (!gameInfoLuaUpdated) {
             //read template, prepare used model
-            let luaScriptPath = GetDataPath() + "\\lua\\gameInfo.lua";
+            let luaScriptPath = path.join(GetDataPath(), "lua", "gameInfo.lua");
 
             let luaScriptContent = fs.readFileSync(luaScriptPath, "utf-8");
             if (!config.ignoredItems)
@@ -315,14 +312,14 @@ ipcMain.handle("GetGameInfos", async (e) => {
         cl("Executing dfhack-run... " + luaScriptUsePath);
         let args = ["lua", "-f", luaScriptUsePath];
 
-        fs.access(path, fs.constants.F_OK | fs.constants.X_OK, (err) => {
+        fs.access(dfhackPath, fs.constants.F_OK | fs.constants.X_OK, (err) => {
             if (err) {
                 resolve(GetMissingDFHackError("GetGameInfos1"));
                 return;
             }
 
             var oldClipboard = clipboard.readText();
-            execFile(path, args, (error, stdout, stderr) => {
+            execFile(dfhackPath, args, (error, stdout, stderr) => {
                 if (error) {
                     data = {
                         error: {
@@ -382,29 +379,29 @@ ipcMain.handle("GetJobsInfos", async () => {
     readingStuff = true;
 
     return new Promise(async (resolve, reject) => {
-        let path = config.dwarfPath + "\\dfhack-run.exe";
+        let dfhackPath = path.join(config.dwarfPath, DFHackRunName());
 
         //read template
-        let luaScriptPath = GetDataPath() + "\\lua\\jobInfos.lua";
+        let luaScriptPath = path.join(GetDataPath(), "lua", "jobInfos.lua");
         let luaScriptContent = fs.readFileSync(luaScriptPath, "utf-8");
         luaScriptContent = luaScriptContent.replace("69420;", jobsInfosStartIndex + ";");
         luaScriptContent = luaScriptContent.replace("69421;", jobsInfosMaxScans + ";");
 
         //write used model
-        luaScriptPath = GetDataPath() + "\\lua\\jobInfos_use.lua";
+        luaScriptPath = path.join(GetDataPath(), "lua", "jobInfos_use.lua");
         fs.writeFileSync(luaScriptPath, luaScriptContent, "utf-8");
 
         cl("Executing dfhack-run... " + luaScriptPath);
         cl("> Getting job infos from index " + jobsInfosStartIndex);
         let args = ["lua", "-f", luaScriptPath];
 
-        fs.access(path, fs.constants.F_OK | fs.constants.X_OK, (err) => {
+        fs.access(dfhackPath, fs.constants.F_OK | fs.constants.X_OK, (err) => {
             if (err) {
                 resolve(GetMissingDFHackError("GetJobsInfos1"));
             }
 
             var oldClipboard = clipboard.readText();
-            execFile(path, args, (error) => {
+            execFile(dfhackPath, args, (error) => {
                 if (error) {
                     data = {
                         error: {
@@ -474,27 +471,27 @@ ipcMain.handle("GetStocks", async () => {
     readingStuff = true;
 
     return new Promise(async (resolve, reject) => {
-        let path = config.dwarfPath + "\\dfhack-run.exe";
+        let dfhackPath = path.join(config.dwarfPath, DFHackRunName());
 
         //read template
-        let luaScriptPath = GetDataPath() + "\\lua\\exportStocks.lua";
+        let luaScriptPath = path.join(GetDataPath(), "lua", "exportStocks.lua");
         let luaScriptContent = fs.readFileSync(luaScriptPath, "utf-8");
         luaScriptContent = luaScriptContent.replace("69420;", stocksReaderStartIndex + ";");
         luaScriptContent = luaScriptContent.replace("69421;", stocksReaderMaxScans + ";");
         //write used model
-        luaScriptPath = GetDataPath() + "\\lua\\exportStocks_temp.lua";
+        luaScriptPath = path.join(GetDataPath(), "lua", "exportStocks_temp.lua");
         fs.writeFileSync(luaScriptPath, luaScriptContent, "utf-8");
 
         let args = ["lua", "-f", luaScriptPath];
 
-        fs.access(path, fs.constants.F_OK | fs.constants.X_OK, (err) => {
+        fs.access(dfhackPath, fs.constants.F_OK | fs.constants.X_OK, (err) => {
             if (err) {
                 resolve(GetMissingDFHackError("GetStocks1"));
                 return;
             }
 
             var oldClipboard = clipboard.readText();
-            execFile(path, args, async (error) => {
+            execFile(dfhackPath, args, async (error) => {
                 if (error) {
                     data = {
                         error: {
@@ -570,21 +567,18 @@ ipcMain.handle("ReadOrdersFile", async () => {
     cl("Reading orders file...");
 
     return new Promise((resolve, reject) => {
-        let path = config.dwarfPath + "\\dfhack-run.exe";
-        let filename = config.ordersFilePath.substring(
-            config.ordersFilePath.lastIndexOf("\\") + 1,
-            config.ordersFilePath.length - 5
-        );
+        let dfhackPath = path.join(config.dwarfPath, DFHackRunName());
+        let filename = path.basename(config.ordersFilePath, '.json');
         let args = ["orders", "export", filename];
 
-        fs.access(path, fs.constants.F_OK | fs.constants.X_OK, (err) => {
+        fs.access(dfhackPath, fs.constants.F_OK | fs.constants.X_OK, (err) => {
             if (err) {
                 resolve(GetMissingDFHackError("ReadFile1"));
                 readingStuff = false
                 return;
             }
 
-            execFile(path, args, (error) => {
+            execFile(dfhackPath, args, (error) => {
                 if (error) {
                     data = {
                         error: {
@@ -645,25 +639,25 @@ async function SendToDF() {
 
     readingStuff = true;
 
-    let path = config.dwarfPath + "\\dfhack-run.exe";
-    let filename = config.ordersFilePath.substring(config.ordersFilePath.lastIndexOf("\\") + 1, config.ordersFilePath.length - 5); //remove .json
+    let dfhackPath = path.join(config.dwarfPath, DFHackRunName());
+    let filename = path.basename(config.ordersFilePath, '.json');
     let args1 = ["orders", "clear"];
     let args2 = ["orders", "import", filename + "_out"];
 
     try {
-        fs.access(path, fs.constants.F_OK | fs.constants.X_OK, (err) => {
+        fs.access(dfhackPath, fs.constants.F_OK | fs.constants.X_OK, (err) => {
             if (err) {
                 resolve(GetMissingDFHackError("SendToDF1"));
                 return;
             }
 
             //clear orders command
-            execFile(path, args1, (error) => {
+            execFile(dfhackPath, args1, (error) => {
                 if (error) {
                     data = {
                         error: {
                             title: "Execution error",
-                            msg: "An error occurred while executing dfhack-run.exe. Check if DFHack installed and if a Fortress mode game is running.",
+                            msg: "An error occurred while executing " + DFHackRunName() + ". Check if DFHack installed and if a Fortress mode game is running.",
                             context: "SendToDF2",
                             buttons: ["CONTINUE"]
                         }
@@ -675,12 +669,12 @@ async function SendToDF() {
                 }
 
                 //import orders command
-                execFile(path, args2, (error) => {
+                execFile(dfhackPath, args2, (error) => {
                     if (error) {
                         data = {
                             error: {
                                 title: "Execution error",
-                                msg: "An error occurred while executing dfhack-run.exe. Check if DFHack installed and if a Fortress mode game is running.\n" + error,
+                                msg: "An error occurred while executing " + DFHackRunName() + ". Check if DFHack installed and if a Fortress mode game is running.\n" + error,
                                 context: "SendToDF3",
                                 buttons: ["CONTINUE"]
                             }
@@ -723,16 +717,16 @@ function GetPathsReadyError() {
 
     var data = null;
 
-    var requiredFile = path.join(config.dwarfPath, "Dwarf Fortress.exe");
+    var requiredFile = path.join(config.dwarfPath, DwarfFortressExeName());
     if (!fs.existsSync(requiredFile)) {
-        cl("Dwarf Fortress.exe not found in " + config.dwarfPath);
-        return GetMissingDFHackError("Paths1 (missing 'dwarf fortress.exe')");
+        cl(DwarfFortressExeName() + " not found in " + config.dwarfPath);
+        return GetMissingDFHackError("Paths1 (missing '" + DwarfFortressExeName() + "')");
     }
 
-    requiredFile = path.join(config.dwarfPath, "dfhack-run.exe");
+    requiredFile = path.join(config.dwarfPath, DFHackRunName());
     if (!fs.existsSync(requiredFile)) {
-        cl("dfhack-run.exe not found in " + config.dwarfPath);
-        return GetMissingDFHackError("Paths2 (missing 'dfhack-run.exe')");
+        cl(DFHackRunName() + " not found in " + config.dwarfPath);
+        return GetMissingDFHackError("Paths2 (missing '" + DFHackRunName() + "')");
     }
 
     return null;
@@ -880,9 +874,11 @@ async function pause(milliseconds) {
 
 
 function GetDataPath() {
-    if (app.isPackaged) {
-        return path.dirname(process.execPath) + "\\resources";
-    } else {
-        return __dirname
-    }
+    if (app.isPackaged)
+        return path.join(path.dirname(process.execPath), "resources");
+    return __dirname;
+}
+
+function DwarfFortressExeName() {
+    return process.platform === 'win32' ? 'Dwarf Fortress.exe' : 'dwarfort';
 }

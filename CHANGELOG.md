@@ -24,3 +24,7 @@
 - Added Charcoal support from the stocks tab (requires displaying the COAL material)
 - Added Coke support from the stocks tab (requires displaying the COKE material - ordering coke with trigger both Bituminous and Lignite orders)
 - Fixed tab access shortcut keys 
+
+## [0.1.4] - 2026-02-07
+- Fixed bug in graphs polling rate
+- Adapted code to be compatible with Linux

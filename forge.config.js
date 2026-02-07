@@ -16,7 +16,7 @@ module.exports = {
     extraResource: [
       "lua"
     ],
-    icon: 'df-pom-icon.ico'
+    icon: 'df-pom-icon'
   },
   rebuildConfig: {},
   makers: [
@@ -35,7 +35,7 @@ module.exports = {
       name: '@electron-forge/maker-deb',
       config: {
         options: {
-          icon: "df-pom-icon.ico",
+          icon: "df-pom-icon.png",
         }
       },
     },

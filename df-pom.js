@@ -70,7 +70,7 @@ var previousSizeMode;
 var fuses = [];
 var keysDown = [];
 let keyedToasts = {};
-let lastGraphHistorySave = 0;
+let nextGraphSave = 0;
 let stocksHistory = {}
 
 var ligniteCokeJob;
@@ -2660,12 +2660,14 @@ function FinalizeStocksData() {
         }
     });
 
+    let graphRate = parseInt(GetGraphsRate());
     gm.year = data.year;
     gm.yearTick = data.yearTick;
-    gm.dayNumber = data.year * 336 + Math.floor(gm.yearTick / GetGraphsRate());
+    gm.dayNumber = data.year * 336 + Math.floor(gm.yearTick / graphRate);
     gm.totalTicks = gm.year * 336 * 1200 + gm.yearTick;
 
-    if (lastGraphHistorySave + GetGraphsRate() <= gm.totalTicks) {
+    if (nextGraphSave <= gm.totalTicks) {
+        cl("plop " + graphRate)
         Object.keys(stocks).forEach(itemName => {
             Object.keys(stocks[itemName]).forEach(mat => {
                 let key = itemName + "@" + mat;
@@ -2676,9 +2678,9 @@ function FinalizeStocksData() {
                 }
             });
         });
+        nextGraphSave = gm.totalTicks + graphRate;
         RedrawGraphs();
     }
-    lastGraphHistorySave = gm.totalTicks;
 
     itemsWithCapacity = Object.values(gm.items).filter(i => i.container_capacity > 0).map(i => i.subtypeName != "" ? i.subtypeName : i.typeName);
 }
@@ -5918,6 +5920,7 @@ function SaveSetting(name, value) {
 
         case "graphsRate":
             config[name] = Math.max(min_graphsRate, Math.min(max_graphsRate, parseInt(value) || 0));
+            nextGraphSave = 0;
             SetGraphsSpanLabel();
             break;
 
