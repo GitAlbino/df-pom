@@ -159,7 +159,7 @@ input {
     font-size: 15px;
 
     &:hover {
-        background: var(--color-inpbga);
+        background: var(--color-1e);
     }
 
     &:focus {
@@ -373,6 +373,7 @@ button {
 .toggleTabInventory #tabInventoryButton,
 .toggleTabSmelting #tabSmeltingButton,
 .toggleTabSettings #tabSettings,
+.toggleTabGraphs #tabGraphs,
 .toggleTabOrders #tabOrdersButton {
     z-index: 4;
     top: 3px;
@@ -402,6 +403,10 @@ button {
 }
 
 .toggleTabSettings .settingsTab {
+    display: flex !important;
+}
+
+.toggleTabGraphs .graphsTab {
     display: flex !important;
 }
 
@@ -2663,13 +2668,24 @@ body {
 }
 
 .settingsTab {
+    flex-direction: column;
     flex-shrink: 1;
     height: 100%;
     align-items: flex-start;
+    justify-content: flex-start;
+
 
     .settingsContent {
         background-color: var(--color-bgc);
-        padding: 5px 10px;
+        padding: 5px 10px 10px 10px;
+
+        h2 {
+            font-weight: normal;
+            font-size: 16px;
+            text-transform: uppercase;
+            padding: 5px 10px;
+            color: var(--color-txtd);
+        }
 
         .setting {
             display: flex;
@@ -2900,6 +2916,145 @@ body {
     }
 }
 
+.graphsTab {
+    display: none;
+    flex-direction: column;
+    align-items: stretch;
+
+    .graphsSpan {
+        min-width: 0;
+        max-width: 100%;
+
+        input {
+            min-width: 0;
+            width: 100%;
+            color: var(--color-txtd);
+            border: 1px solid var(--color-txtg);
+        }
+
+        label {
+            display: flex;
+            gap: 5px;
+            color: var(--color-txtd);
+        }
+
+        .spanTotal {
+            display: block;
+            width: 100%;
+            text-align: center;
+            color: var(--color-txtd);
+
+            &:before {
+                content: "Last ";
+            }
+        }
+
+    }
+
+    .graphsContent {
+        display: flex;
+        flex-direction: column;
+        flex-wrap: wrap;
+        min-width: max-content;
+        width: max-content;
+        max-height: 100%;
+
+        overflow: hidden;
+        scrollbar-width: none;
+
+        .noGraphs {
+            font-size: 95%;
+            line-height: 100%;
+            color: var(--color-txtc);
+            overflow: visible;
+            white-space: wrap;
+            margin:10px 0;
+            max-width: 200px;
+            text-align: center;
+        }
+
+        .graph {
+            position: relative;
+            min-width: 100%;
+            width: 100%;
+            border: 1px solid var(--color-txti);
+            background-color: var(--color-txtj);
+
+            span {
+                display: inline-block;
+                position: absolute;
+                top: 0;
+                z-index: 10;
+                font-size: 95%;
+                line-height: 100%;
+
+                &.dataName {
+                    display: block;
+                    max-width: calc(100% - 25px);
+                    word-wrap: break-word;
+                    color: var(--color-1c);
+                    white-space: nowrap;
+                    overflow: hidden;
+
+                    i {
+                        display: block;
+                        color: var(--color-txtd);
+                    }
+                }
+
+                &.max {
+                    width: 100%;
+                    min-width: 0;
+
+                    input {
+                        position: absolute;
+                        display: block;
+                        min-width: 0;
+                        width: auto;
+                        right: 3px;
+                        left: auto;
+                        min-width: 0;
+                        max-width: 30px;
+                        border: none;
+                        color: var(--color-txte);
+                        background-color: transparent;
+                        text-align: right;
+                        font-size: 95%;
+                        line-height: 100%;
+
+                        &:hover,
+                        &:focus {
+                            background-color: #FFF2;
+                            color: var(--color-1a);
+                        }
+                    }
+                }
+            }
+
+            .svgHost {
+                width: 100%;
+                height: 100%;
+
+                p {
+                    height: 100%;
+                    align-content: center;
+                    font-style: italic;
+                    color: var(--color-txte);
+                    text-align: center;
+                    font-size: 95%;
+                }
+
+                svg {
+                    position: relative;
+                    top: 12px;
+                    width: 100%;
+                    height: 100%;
+                    padding: 3px;
+                }
+            }
+        }
+    }
+}
 
 .changelog {
     h2 {
@@ -2911,13 +3066,13 @@ body {
 
     .versions {
         display: block !important;
-        padding:10px;
+        padding: 10px;
         border: solid 1px var(--color-txtg);
         overflow-y: auto;
         max-height: 500px;
 
         .versionBlock {
-            margin:20px;
+            margin: 20px;
         }
     }
 }

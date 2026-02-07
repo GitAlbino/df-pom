@@ -190,12 +190,21 @@
 						<div class="over"></div>
 					</button>
 					<div class="sep"> </div>
+					<button id="tabGraphs" onclick="SetTab('graphs')">
+						<span class="ico"><svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#e3e3e3">
+								<path d="M320-414v-306h120v306l-60-56-60 56Zm200 60v-526h120v406L520-354ZM120-216v-344h120v224L120-216Zm0 98 258-258 142 122 224-224h-64v-80h200v200h-80v-64L524-146 382-268 232-118H120Z" />
+							</svg></span>
+						<span class="txt">GRAPHS</span>
+						<span class="keyInfo">4</span>
+						<div class="over"></div>
+					</button>
+					<div class="sep"> </div>
 					<button id="tabSettings" onclick="SetTab('settings')">
 						<span class="ico"><svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#e3e3e3">
-								<path d="M240-400q0 52 21 98.5t60 81.5q-1-5-1-9v-9q0-32 12-60t35-51l113-111 113 111q23 23 35 51t12 60v9q0 4-1 9 39-35 60-81.5t21-98.5q0-50-18.5-94.5T648-574q-20 13-42 19.5t-45 6.5q-62 0-107.5-41T401-690q-39 33-69 68.5t-50.5 72Q261-513 250.5-475T240-400Zm240 52-57 56q-11 11-17 25t-6 29q0 32 23.5 55t56.5 23q33 0 56.5-23t23.5-55q0-16-6-29.5T537-292l-57-56Zm0-492v132q0 34 23.5 57t57.5 23q18 0 33.5-7.5T622-658l18-22q74 42 117 117t43 163q0 134-93 227T480-80q-134 0-227-93t-93-227q0-129 86.5-245T480-840Z" />
+								<path d="m370-80-16-128q-13-5-24.5-12T307-235l-119 50L78-375l103-78q-1-7-1-13.5v-27q0-6.5 1-13.5L78-585l110-190 119 50q11-8 23-15t24-12l16-128h220l16 128q13 5 24.5 12t22.5 15l119-50 110 190-103 78q1 7 1 13.5v27q0 6.5-2 13.5l103 78-110 190-118-50q-11 8-23 15t-24 12L590-80H370Zm70-80h79l14-106q31-8 57.5-23.5T639-327l99 41 39-68-86-65q5-14 7-29.5t2-31.5q0-16-2-31.5t-7-29.5l86-65-39-68-99 42q-22-23-48.5-38.5T533-694l-13-106h-79l-14 106q-31 8-57.5 23.5T321-633l-99-41-39 68 86 64q-5 15-7 30t-2 32q0 16 2 31t7 30l-86 65 39 68 99-42q22 23 48.5 38.5T427-266l13 106Zm42-180q58 0 99-41t41-99q0-58-41-99t-99-41q-59 0-99.5 41T342-480q0 58 40.5 99t99.5 41Zm-2-140Z" />
 							</svg></span>
 						<span class="txt">SETTINGS</span>
-						<span class="keyInfo">4</span>
+						<span class="keyInfo">5</span>
 						<div class="over"></div>
 					</button>
 				</div>
@@ -300,8 +309,20 @@
 				</div>
 			</div>
 
+			<div class="graphsTab">
+				<div class="graphsSpan" onmouseup="event.stopPropagation();">
+					<label> Span <input type="number" id="config_graphsSpan" onchange="SaveSetting('graphsSpan',this.value)" title="Points displayed" />
+					</label>
+					<span class='spanTotal'>x days</span>
+				</div>
+				<div class="graphsContent" onmouseup="event.stopPropagation();">
+				</div>
+			</div>
+
+
 			<div class="settingsTab">
 				<div class="settingsContent" onmouseup="event.stopPropagation();">
+					<h2>Orders</h2>
 					<div class="setting">
 						<p>Batch Size</p>
 						<div>
@@ -309,8 +330,45 @@
 							<span>Number of items to produce every time the order conditions are met</span>
 						</div>
 					</div>
+					<h2>Graphs</h2>
+					<div class="setting">
+						<p>Graph Default Max Value</p>
+						<div>
+							<input type="number" id="config_defaultGraphMax" onchange="SaveSetting('defaultGraphMax',this.value)" />
+							<span>Default max value for Y axis of graphs stocks</span>
+						</div>
+					</div>
+					<div class="setting">
+						<p>Graph Rate</p>
+						<div>
+							<input type="number" id="config_graphsRate" onchange="SaveSetting('graphsRate',this.value)" />
+							<span>Ticks to wait between graph updates (1200 ticks = 1 day)</span>
+						</div>
+					</div>
+					<div class="setting">
+						<p>Graph Height</p>
+						<div>
+							<input type="number" id="config_graphsHeight" onchange="SaveSetting('graphsHeight',this.value)" />
+							<span>Height of graphs (pixels)</span>
+						</div>
+					</div>
+					<div class="setting">
+						<p>Graph Width</p>
+						<div>
+							<input type="number" id="config_graphsWidth" onchange="SaveSetting('graphsWidth',this.value)" />
+							<span>Width of graphs (pixels)</span>
+						</div>
+					</div>
+					<div class="setting">
+						<p>Red background when low</p>
+						<div>
+							<input type="checkbox" id="config_graphsRedBackground" onchange="SaveSetting('graphsRedBackground',this.checked)" />
+							<span>Use a fading red background when the last of a graph is below 40%</span>
+						</div>
+					</div>
 				</div>
 			</div>
+
 		</div>
 
 

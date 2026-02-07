@@ -72,6 +72,7 @@ local output = 'lastIndex=' .. tostring(index) .. '/'
 if index == 0 then
 	output = output .. 'completed/'
 end
+output = output .. 'year=' .. tostring(df.global.cur_year) .. '/'
 output = output .. 'yearTick=' .. tostring(df.global.cur_year_tick) .. '/'
 
 for key, value in pairs(counts) do

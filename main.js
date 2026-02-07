@@ -131,11 +131,6 @@ async function ReadConfig() {
 
 async function SaveConfig() {
     cl("Saving config...");
-    cl(config);
-    //console log who called this
-    const stack = new Error().stack;
-    cl(stack);
-
     fs.writeFileSync(CONFIG_PATH, JSON.stringify(config));
 }
 
@@ -842,6 +837,7 @@ function ProcessStockData(rawData) {
     let completed = false;
     let stocks = {};
     let parts = rawData.split("/");
+    let year = 0;
     let yearTick = 0;
     stocksReaderStartIndex = 0;
     parts.forEach(part => {
@@ -858,6 +854,11 @@ function ProcessStockData(rawData) {
             yearTick = parseInt(indexPart);
             return;
         }
+        if (part.startsWith("year=")) {
+            let indexPart = part.replace("year=", "");
+            year = parseInt(indexPart);
+            return;
+        }
         if (part == "completed") {
             completed = true;
             return;
@@ -868,7 +869,7 @@ function ProcessStockData(rawData) {
         stocks[itemKey] = quantity;
     });
 
-    var response = { completed: completed, yearTick: yearTick, nextIndex: stocksReaderStartIndex, batchSize: stocksReaderMaxScans, stocks: stocks };
+    var response = { completed: completed, yearTick: yearTick, year: year, nextIndex: stocksReaderStartIndex, batchSize: stocksReaderMaxScans, stocks: stocks };
     return response;
 }
 

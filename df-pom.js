@@ -32,6 +32,7 @@ var lastPopData;
 var lastFavorites;
 var modificationsPending;
 var initDone = false;
+let graphBoxes = {};
 
 var itemJob = [];
 var itemHasJob = {};
@@ -45,6 +46,7 @@ var itemWithDimensions = {
     "THREAD": 15000
 }
 
+let noGraphs = false;
 let initToast;
 var emptyCellsCreated = false;
 var wasShiftPressed = false;
@@ -68,6 +70,8 @@ var previousSizeMode;
 var fuses = [];
 var keysDown = [];
 let keyedToasts = {};
+let lastGraphHistorySave = 0;
+let stocksHistory = {}
 
 var ligniteCokeJob;
 var bituminousToCokeJob;
@@ -111,7 +115,18 @@ var materials = []
 var stocksMaterials = []
 var jobsMaterials = []
 
-var materialsGroups = [
+const min_graphsRed = 0;
+const max_graphsRed = 1;
+const min_graphsSpan = 3;
+const max_graphsSpan = 1000;
+const min_graphsRate = 1;
+const max_graphsRate = 1200;
+const min_graphsHeight = 30;
+const max_graphsHeight = 1000;
+const min_graphsWidth = 100;
+const max_graphsWidth = 1000;
+
+let materialsGroups = [
     "ALL",
     "BONE",
     "CERAMIC",
@@ -126,6 +141,8 @@ var materialsGroups = [
     "THREAD",
     "WOOD",
 ]
+
+
 
 var sideA;
 var sideB;
@@ -145,7 +162,7 @@ async function InitDOM() {
     $("ver").forEach(el => el.textContent = "v" + config.version);
     fileHandle = await window.api.GetFileHandle();
 
-    if (!(config.toggleTabInventory || config.toggleTabOrders || config.toggleTabJobs))
+    if (!(config.toggleTabInventory || config.toggleTabOrders || config.toggleTabJobs || config.toggleTabGraphs))
         SetTab("inventory");
 
     sideA = $(".inventoryBody .itemsSide")[0];
@@ -222,6 +239,7 @@ async function InitData() {
         ClearToast(initToast);
     }
 
+    RedrawGraphs();
     await DataAutoUpdater();
 
 }
@@ -1939,9 +1957,15 @@ async function CallGetSetConfig(newConfig) {
     config = await window.api.GetSetConfig(newConfig);
 
     Object.entries(config).forEach((entry) => {
-        key = entry[0];
+        let key = entry[0];
         value = entry[1];
-        $("input[id='config_" + key + "']").forEach(input => { input.value = value; });
+        $("input[id='config_" + key + "']").forEach(input => {
+            if (input.type == "checkbox") {
+                input.checked = value == 1;
+            } else {
+                input.value = value;
+            }
+        });
     });
 }
 
@@ -2265,6 +2289,14 @@ function GetOrderBatchSize() {
     return parseInt(config.orderBatchSize);
 }
 
+function GetDefaultGraphMax() {
+    if (!Number.isInteger(parseInt(config.defaultGraphMax)) || config.defaultGraphMax < 1) {
+        config.defaultGraphMax = 100;
+        SaveConfig();
+    }
+    return parseInt(config.defaultGraphMax);
+}
+
 function FindOrdersForJob(job) {
     if (!job)
         return [];
@@ -2356,7 +2388,7 @@ function CleanupDuplicateOrders(showToast = true) {
 }
 
 
-function StockEntryLabel(itemName) {
+function StockEntryLabel(itemName, noGroup = false) {
     var item = gm.items[itemName]
     if (!item) {
         cl("Unknown item: " + itemName);
@@ -2426,7 +2458,7 @@ function StockEntryLabel(itemName) {
     if (labelName == "Wood")
         labelName = "Wood log"
 
-    if (!item.isTypeOnly) {
+    if (!item.isTypeOnly && !noGroup) {
         let groupName = ItemGroupName(item);
         return (groupName != "" ? "<b>" + groupName + "</b>" : "") + labelName;
     } else {
@@ -2563,8 +2595,6 @@ function FinalizeStocksData() {
         return ItemNameWithoutPrefix(a.item).localeCompare(ItemNameWithoutPrefix(b.item));
     });
 
-    gm.yearTick = data.yearTick;
-
     stocks = {};
     stockArray.forEach(obj => {
         ProcessStockLine(obj.item, obj.mats);
@@ -2629,6 +2659,26 @@ function FinalizeStocksData() {
             });
         }
     });
+
+    gm.year = data.year;
+    gm.yearTick = data.yearTick;
+    gm.dayNumber = data.year * 336 + Math.floor(gm.yearTick / GetGraphsRate());
+    gm.totalTicks = gm.year * 336 * 1200 + gm.yearTick;
+
+    if (lastGraphHistorySave != gm.totalTicks) {
+        Object.keys(stocks).forEach(itemName => {
+            Object.keys(stocks[itemName]).forEach(mat => {
+                let key = itemName + "@" + mat;
+                config.graphs = config.graphs ?? {};
+                if (Object.keys(config.graphs).includes(key)) {
+                    stocksHistory[key] = stocksHistory[key] ?? [];
+                    stocksHistory[key].push(stocks[itemName][mat]);
+                }
+            });
+        });
+        RedrawGraphs();
+    }
+    lastGraphHistorySave = gm.totalTicks;
 
     itemsWithCapacity = Object.values(gm.items).filter(i => i.container_capacity > 0).map(i => i.subtypeName != "" ? i.subtypeName : i.typeName);
 }
@@ -2773,8 +2823,16 @@ function CreateStockCell(item, material) {
         var stockDiv = document.createElement("div");
         stockDiv.classList.add("stock");
         stockDiv.title = "Current stock quantity";
-
+        let graphKey = itemName + "@" + material
         var key = itemName + "/" + (material == "STONE" ? "INORGANIC" : material);
+
+        stockDiv.classList.toggle("graphed", Object.keys(config.graphs).includes(graphKey));
+        stockDiv.addEventListener("click", (e) => {
+            const k = key;
+            e.stopPropagation();
+            cl(itemJob[k] ? GetOrderTargetQtt(FindOrdersForJob(itemJob[k])[0]) : null);
+            ToggleDisplayGraph(graphKey, itemJob[k] ? GetOrderTargetQtt(FindOrdersForJob(itemJob[k])[0]) : null);
+        });
 
         if (!itemJob[key]) {
             //cl("Missing job for " + key);
@@ -3819,6 +3877,11 @@ function OnGeneralKeyUp(e) {
         }
 
         if (key == "4" || key == "'") {
+            e.preventDefault();
+            SetTab("graphs");
+        }
+
+        if (key == "5" || key == "(") {
             e.preventDefault();
             SetTab("settings");
         }
@@ -5834,7 +5897,6 @@ function OpenLink(link) {
 
 function SaveSetting(name, value) {
     config[name] = value;
-    SaveConfig();
 
     switch (name) {
         case "orderBatchSize":
@@ -5842,5 +5904,263 @@ function SaveSetting(name, value) {
                 SetOrderTargetQtt(order, GetOrderTargetQtt(order));
             });
             break;
+
+        case "graphsRedBackground":
+            config[name] = value ? 1 : 0;
+            RedrawGraphs();
+            break;
+
+        case "graphsSpan":
+            config[name] = Math.max(min_graphsSpan, Math.min(max_graphsSpan, parseInt(value) || 0));
+            RedrawGraphs();
+            SetGraphsSpanLabel();
+            break;
+
+        case "graphsRate":
+            config[name] = Math.max(min_graphsRate, Math.min(max_graphsRate, parseInt(value) || 0));
+            SetGraphsSpanLabel();
+            break;
+
+        case "graphsHeight":
+            config[name] = Math.max(min_graphsHeight, Math.min(max_graphsHeight, parseInt(value) || 0));
+            RedrawGraphs();
+            break;
+
+        case "graphsWidth":
+            config[name] = Math.max(min_graphsWidth, Math.min(max_graphsWidth, parseInt(value) || 0));
+            RedrawGraphs();
+            break;
     }
+    SaveConfig();
+}
+
+
+function CreateGraph(key, maxValue = null) {
+    if (graphBoxes[key])
+        return graphBoxes[key];
+
+    let div = document.createElement("div");
+    {
+        div.classList.add("graph");
+        div.setAttribute("data-graphKey", key);
+
+        let svgHost = document.createElement("div");
+        svgHost.classList.add("svgHost");
+        div.appendChild(svgHost);
+
+        let span = document.createElement("span");
+        let parts = key.split("@");
+        let itemName = StockEntryLabel(parts[0], true);
+        div.appendChild(span);
+        {
+            span.classList.add("dataName");
+            if (parts.length > 1) {
+                span.innerHTML = itemName + " <i>" + parts[1] + "</i>";
+            } else {
+                span.innerHTML = itemName;
+            }
+        }
+        div.setAttribute("title", itemName);
+
+        span = document.createElement("span");
+        div.appendChild(span);
+        {
+            span.classList.add("max");
+            let input = document.createElement("input");
+            span.appendChild(input);
+            {
+                input.type = "number";
+                input.classList.add("inputNumber");
+                input.value = maxValue ?? GetDefaultGraphMax();
+                input.addEventListener("change", (e) => { SetGraphMax(key, e.target.value); });
+                input.setAttribute("title", "Set the maximum value of the graph. If the stock values exceed this value, the graph will display a dashed line.");
+            }
+        }
+
+
+    }
+    document.querySelector(".graphsContent").appendChild(div);
+
+    config.graphs[key] = {
+        max: maxValue ?? GetDefaultGraphMax()
+    }
+    SaveConfig();
+
+    graphBoxes[key] = div;
+    return graphBoxes[key];
+}
+
+function RedrawGraphs() {
+    if (!CheckNoGraphs()) {
+        Object.keys(config.graphs).forEach(key => {
+            DrawGraph(key);
+        });
+    }
+
+    document.querySelector(".graphsSpan").style.maxWidth = (GetGraphWidth() + 6) + "px";
+    document.querySelector(".graphsSpan").style.minWidth = (GetGraphWidth() + 6) + "px";
+}
+
+function CheckNoGraphs() {
+    if (config.graphs == null || Object.keys(config.graphs).length == 0) {
+        $(".graphsContent")[0].innerHTML = "<div class='noGraphs'>No graphs to display.<br>To add a graph, click on the right side of stock cell (where the stock quantity is).</div>";
+        graphBoxes = {};
+        config.graphs = {};
+        noGraphs = true;
+    } else {
+        if (noGraphs && $(".graphsContent .noGraphs")[0])
+            $(".graphsContent .noGraphs")[0].remove()
+        noGraphs = false;
+    }
+    return noGraphs;
+}
+
+function DrawGraph(key) {
+    var graph = config.graphs[key];
+    CreateGraph(key, graph ? graph.max : null);
+    var svgHost = document.querySelector(".graph[data-graphKey='" + key + "'] .svgHost");
+    if (!svgHost) {
+        Trace("Could not find graph " + key);
+        return;
+    }
+    let sHisto = stocksHistory[key];
+    let noHisto = false;
+    if (!stocksHistory[key]) {
+        sHisto = [-10];
+        noHisto = true;
+    }
+
+    let max = graph.max;
+    //prepend history with -1 values if history is shorter than graphsSpan
+    let length = GetGraphsSpan();
+    let drawnPoints = Array.from(sHisto);
+    while (drawnPoints.length < length) {
+        drawnPoints.unshift(-10);
+    }
+    //remove old points if history is longer than graphsSpan
+    while (drawnPoints.length > length) {
+        drawnPoints.shift();
+    }
+
+    let w = GetGraphWidth();
+    let h = GetGraphHeight();
+    let solid = true;
+    var points = drawnPoints.map((value, index) => {
+        var x = ((index / (config.graphsSpan - 1)) * w).toFixed(2);
+        var y = Math.max(0, h - (value / max) * h).toFixed(2);
+        if (value > max)
+            solid = false;
+        return { x, y };
+    });
+
+    let lastRatio = 0;
+    if (config.graphsRedBackground) {
+        lastRatio = 1 - Math.min(1, Math.max(0, sHisto[sHisto.length - 1] / max));
+        lastRatio -= 0.6;
+        lastRatio = Math.max(0, Math.min(1, lastRatio * 2.5));
+    }
+
+    var pathData = points.map((point, index) => {
+        return (index === 0 ? "M " : "L ") + point.x + " " + point.y;
+    }).join(" ");
+
+
+    document.querySelector(".graph[data-graphKey='" + key + "']").style.minWidth = (w + 6) + "px";
+    document.querySelector(".graph[data-graphKey='" + key + "']").style.maxWidth = (w + 6) + "px";
+    document.querySelector(".graph[data-graphKey='" + key + "']").style.background = "rgba(" + Interpolate(34, 120, lastRatio) + "," + Interpolate(34, 0, lastRatio) + "," + Interpolate(34, 0, lastRatio) + ",0.6)"
+    svgHost.style.height = (h + 12) + "px";
+    //if not solid make dashed line
+
+    let strokeDasharray = solid ? "none" : "5 5";
+
+    if (noHisto) {
+        svgHost.innerHTML = "<p>Waiting for data...</p>";
+    } else {
+        svgHost.innerHTML = "<svg viewbox='0 0 " + w + " " + h + "' style='width:" + w + "px;height:" + h + "px' "
+            + "xmlns='http://www.w3.org/2000/svg' preserveAspectRatio='none'>"
+            + " <path d='" + pathData + "' fill='none' stroke='white' stroke-width='2' stroke-dasharray='" + strokeDasharray + "' /></svg > ";
+    }
+}
+
+
+function ToggleDisplayGraph(key, maxValue = null) {
+    config.graphs ??= {};
+    if (!config.graphs[key]) {
+        CreateGraph(key, maxValue);
+    } else {
+        if (graphBoxes[key])
+            graphBoxes[key].remove();
+        delete (graphBoxes[key])
+        delete (config.graphs[key]);
+        SaveConfig();
+    }
+    RedrawGraphs()
+}
+
+
+function SetGraphMax(key, value) {
+    var graph = config.graphs[key];
+    graph.max = Math.max(1, value);
+    SaveConfig();
+    DrawGraph(key);
+}
+
+function GetGraphsSpan() {
+    let old = config.graphsSpan;
+    config.graphsSpan = Math.max(min_graphsSpan, Math.min(max_graphsSpan, parseInt(config.graphsSpan) || 10));
+    if (old != config.graphsSpan)
+        SaveConfig();
+    return parseInt(config.graphsSpan);
+}
+
+function GetGraphsRate() {
+    let old = config.graphsRate;
+    config.graphsRate = Math.max(min_graphsRate, Math.min(max_graphsRate, parseInt(config.graphsRate) || 300));
+    if (old != config.graphsRate)
+        SaveConfig();
+    return parseInt(config.graphsRate);
+}
+
+function GetGraphHeight() {
+    let old = config.graphsHeight;
+    config.graphsHeight = Math.max(min_graphsHeight, Math.min(max_graphsHeight, parseInt(config.graphsHeight) || 100));
+    if (old != config.graphsHeight)
+        SaveConfig();
+    return parseInt(config.graphsHeight);
+}
+
+function GetGraphWidth() {
+    let old = config.graphsWidth;
+    config.graphsWidth = Math.max(min_graphsWidth, Math.min(max_graphsWidth, parseInt(config.graphsWidth) || 100));
+    if (old != config.graphsWidth)
+        SaveConfig();
+    return parseInt(config.graphsWidth);
+}
+
+
+function SetGraphsSpanLabel() {
+    let spanText = $(".graphsTab .spanTotal")[0];
+    var totalTickSpan = config.graphsRate * config.graphsSpan;
+
+    let day = 1200;
+    let hour = day / 24;
+    let minute = hour / 60;
+    if (totalTickSpan <= hour) {
+        totalTickSpan = totalTickSpan / minute;
+        spanText.innerText = totalTickSpan.toFixed(0) + " minutes";
+        return;
+    }
+
+    if (totalTickSpan <= day) {
+        totalTickSpan = totalTickSpan / hour;
+        spanText.innerText = totalTickSpan.toFixed(0) + " hours";
+        return;
+    }
+
+    totalTickSpan = totalTickSpan / day;
+    spanText.innerText = totalTickSpan.toFixed(0) + " days";
+}
+function Interpolate(min, max, ratio) {
+    ratio = Math.max(0, Math.min(1, ratio));
+    return min + (max - min) * ratio;
 }
