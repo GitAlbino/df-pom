@@ -36,13 +36,18 @@ module.exports = {
       name: '@electron-forge/maker-deb',
       config: {
         options: {
+          bin: "df-pom",
           icon: "df-pom-icon.png",
         }
       },
     },
     {
       name: '@electron-forge/maker-rpm',
-      config: {},
+      config: {
+        options: {
+          bin: "df-pom",
+        }
+      },
     },
   ],
   plugins: [
