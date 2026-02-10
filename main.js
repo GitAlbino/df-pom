@@ -104,7 +104,15 @@ app.whenReady().then(async () => {
     //read config file if exists
     await ReadConfig();
     if (config.autoUpdate)
+    {
+        autoUpdater.setFeedURL({
+            provider: 'github',
+            owner: 'GitAlbino',
+            repo: 'df-pom'
+        });
+        autoUpdater.allowPrerelease = true;
         autoUpdater.checkForUpdatesAndNotify();
+    }
 
     CreateWindow();
 })

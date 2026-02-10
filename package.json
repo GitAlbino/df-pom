@@ -1,7 +1,7 @@
 {
   "name": "dwarf-fortress-production-order-manager",
   "productName": "DF-Pom",
-  "version": "0.1.6-autoUpdateTest.4",
+  "version": "0.1.7",
   "description": "Production order manager for Dwarf Fortress",
   "main": "main.js",
   "scripts": {
