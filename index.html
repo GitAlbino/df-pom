@@ -244,6 +244,7 @@
 						<div class="infos">
 							<div>SHIFT/CTRL+ENTER to <b>add an order</b></div>
 							<div><b>Type</b> from anywhere to <b>filter</b> orders</div>
+							<div><b>To add a graph</b> click on the right side of a item/material cell, the graph will be displayed in the Graphs tab</div>
 							<div>If a filter is set, <b>creating an order will use the active filter</b> to select the job.<br>
 								Use this for quick order creation:<br>
 								"BED + (SHIFT+ENTER x2)" = single-time order of beds.<br>
@@ -311,8 +312,21 @@
 
 			<div class="graphsTab">
 				<div class="graphsSpan" onmouseup="event.stopPropagation();">
-					<label> Span <input type="number" id="config_graphsSpan" onchange="SaveSetting('graphsSpan',this.value)" title="Points displayed" />
-					</label>
+					<div class="top">
+						<label> Span <input type="number" id="config_graphsSpan" onchange="SaveSetting('graphsSpan',this.value)" title="Points displayed" />
+						</label>
+						<div class="help">
+							<span>?</span>
+							<div class="infos rightSide">
+								<div><b>To add a graph</b> click on the right side of a Stock tabs cell</div>
+								<div>Click the graph name to <b>find</b> orders/stocks associated with it</div>
+								<div>CTRL/SHIFT+Click to <b>remove</b> the graph</div>
+								<div>Change the <b>graph scale</b> by setting the max value in the top right corner</div>
+								<div>Dashed lines indicates that the graph values goes beyond the max value</div>
+								<div>Change the graphs size and other parameters in the settings tab</div>
+							</div>
+						</div>
+					</div>
 					<span class='spanTotal'>x days</span>
 				</div>
 				<div class="graphsContent" onmouseup="event.stopPropagation();">

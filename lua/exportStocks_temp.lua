@@ -1,4 +1,4 @@
-local startIndex = 0;
+local startIndex = 5000;
 local maxScans = 5000;
 local counts = {}
 local listFields = false
@@ -77,6 +77,7 @@ output = output .. 'yearTick=' .. tostring(df.global.cur_year_tick) .. '/'
 
 for key, value in pairs(counts) do
 	output = output .. value.. '*'.. key .. '/'
+	print(key .. ': ' .. value)
 end
 
 dfhack.internal.setClipboardTextCp437(output)

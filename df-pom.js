@@ -75,7 +75,9 @@ let stocksHistory = {}
 
 var ligniteCokeJob;
 var bituminousToCokeJob;
-var setOrderCokeNoLoop;
+var brewFromFruit;
+var brewFromPlants;
+var setComboOrderNoLoop;
 
 var lastOrderRead = 0;
 var lastOrdersAccess = 0;
@@ -1653,12 +1655,12 @@ function FilterChanged(search) {
     if (search != '') {
         if (!forceAllItemsVisible) {
             forceAllItemsVisible = true;
-            ToggleMissingItems(true);
+            RefreshStocksFilter();
         }
     } else {
         if (forceAllItemsVisible) {
             forceAllItemsVisible = false;
-            ToggleMissingItems(true);
+            RefreshStocksFilter();
         }
     }
 
@@ -1669,21 +1671,21 @@ function FilterChanged(search) {
 
 
 function FilterItems() {
-    search = generalFilter;
+    let search = generalFilter;
     var itemCells = $(".inventoryBody .cell[item]");
 
     itemCells.forEach(cell => {
-        if (!search) {
+        cell.classList.remove("forceShow");
+        if (search == "") {
             cell.classList.remove("hidden");
         } else {
             cell.classList.add("hidden");
         }
     });
 
-
-    var terms = search.split(" ");
-    terms = terms.map(t => t.trim().toUpperCase());
+    var terms = search.toUpperCase().split(" ");
     terms.forEach(term => {
+        term = term.trim();
         if (!term)
             return;
         itemCells.forEach(cell => {
@@ -1691,6 +1693,7 @@ function FilterItems() {
             var itemName = cell.getAttribute("itemLabel").toUpperCase();
             if (itemName.indexOf(term) > -1) {
                 cell.classList.remove("hidden");
+                cell.classList.add("forceShow");
             }
         });
     });
@@ -2259,6 +2262,11 @@ function SetupOrderFromJob(order, job) {
                 condition.flags ??= [];
                 condition.flags.push("empty");
             }
+            if (condition.item_type == "FOOD") {
+                condition.flags ??= [];
+                condition.flags.push("unrotten");
+                condition.value = GetOrderBatchSize();
+            }
 
             //cl(condition)
 
@@ -2267,6 +2275,7 @@ function SetupOrderFromJob(order, job) {
     }
 
 
+    /*
     if (job.jobTypeName == "PrepareMeal") {
         condition = {
             "condition": "LessThan",
@@ -2276,6 +2285,7 @@ function SetupOrderFromJob(order, job) {
         }
         order.item_conditions.push(condition);
     }
+        */
 
     return order
 }
@@ -2503,8 +2513,10 @@ function FinalizeJobsData() {
         i++;
     });
     jobSortedNames.sort();
-    ligniteCokeJob = FindJobsWith("LIGNITE_TO_COKE")[0]
-    bituminousToCokeJob = FindJobsWith("BITUMINOUS_COAL_TO_COKE")[0]
+    ligniteCokeJob = jobs.find(j => j.reactionName == "LIGNITE_TO_COKE");
+    bituminousToCokeJob = jobs.find(j => j.reactionName == "BITUMINOUS_COAL_TO_COKE");
+    brewFromFruit = jobs.find(j => j.reactionName == "BREW_DRINK_FROM_PLANT");
+    brewFromPlants = jobs.find(j => j.reactionName == "BREW_DRINK_FROM_PLANT");
 
     //CheckJobsValidity();
 }
@@ -2667,7 +2679,6 @@ function FinalizeStocksData() {
     gm.totalTicks = gm.year * 336 * 1200 + gm.yearTick;
 
     if (nextGraphSave <= gm.totalTicks) {
-        cl("plop " + graphRate)
         Object.keys(stocks).forEach(itemName => {
             Object.keys(stocks[itemName]).forEach(mat => {
                 let key = itemName + "@" + mat;
@@ -2685,24 +2696,24 @@ function FinalizeStocksData() {
     itemsWithCapacity = Object.values(gm.items).filter(i => i.container_capacity > 0).map(i => i.subtypeName != "" ? i.subtypeName : i.typeName);
 }
 
-function ProcessStockLine(item, matsQtts) {
+function ProcessStockLine(itemKey, matsQtts) {
 
-    if (!stocks[item])
-        stocks[item] = {}
+    if (!stocks[itemKey])
+        stocks[itemKey] = {}
 
     Object.keys(matsQtts).forEach(mat => {
 
         RegisterRawMaterial(mat, "stock");
 
-        if (!stocks[item][mat])
-            stocks[item][mat] = 0;
+        if (stocks[itemKey][mat] == null)
+            stocks[itemKey][mat] = 0;
 
-        if (!stocks[item]["ALL"])
-            stocks[item]["ALL"] = 0;
+        if (stocks[itemKey]["ALL"] == null)
+            stocks[itemKey]["ALL"] = 0;
 
         let cmat = CraftableMaterialName(mat);
 
-        stock = stocks[item];
+        stock = stocks[itemKey];
         qtt = matsQtts[mat];
         stock[cmat] = qtt;
         stock["ALL"] += qtt;
@@ -2751,7 +2762,12 @@ function CreateStockCell(item, material) {
     if (itemName == "")
         return;
 
-    var totalStockWant = (stocks[itemName]?.["ALL"] > 0 ? 1 : 0) + GetWantedProduction(item, "ALL");
+    var itemStockKey = itemName;
+    if (itemStockKey.includes("!")) {
+        itemStockKey = NoS(itemStockKey.split("!")[0]) + "!" + itemStockKey.split("!")[1]
+    }
+
+    var totalStockWant = (stocks[itemStockKey]?.["ALL"] > 0 ? 1 : 0) + GetWantedProduction(item, "ALL");
     var buildable = itemHasJob[itemName] ? 1 : 0;
     //cl("Creating stock cell for " + stockEntry + " / " + material + " (totalWant: " + totalStockWant + ", buildable: " + buildable + ")");
 
@@ -2861,8 +2877,8 @@ function CreateStockCell(item, material) {
         input.value = wanted;
 
     var stocked = 0;
-    if (stocks[itemName] && stocks[itemName][material])
-        stocked = stocks[itemName][material];
+    if (stocks[itemStockKey] && stocks[itemStockKey][material])
+        stocked = stocks[itemStockKey][material];
 
     matCell.setAttribute("stockWant", stocked + wanted);
     matCell.setAttribute("want", wanted);
@@ -3350,7 +3366,7 @@ function OrderEdited(tag) {
 
                 if (job.name.endsWith(" meal")) {
                     code = ":unrotten FOOD <100\n"
-                    code += ":unrotten :cookable >" + GetOrderBatchSize() + "\n"
+                    code += ":unrotten :cookable :solid >" + GetOrderBatchSize() + "\n"
                 } else {
                     if (job.io?.in?.length > 0) {
                         job.io.in.forEach(input => {
@@ -3632,9 +3648,9 @@ function GetWantedProduction(item, mat) {
     if (myOrders.length == 0)
         return 0;
 
-    var prodCondition = GetOrderOutputItemCondition(myOrders[0]);
-    if (prodCondition)
-        return prodCondition.value;
+    var prodConditions = GetOrderOutputItemConditions(myOrders[0]);
+    if (prodConditions.length > 0)
+        return prodConditions[0].value;
 
     return myOrders[0].amount_total;
 }
@@ -4248,11 +4264,6 @@ function CraftableMaterialName(mat) {
             return mat;
         return "";
     }
-    if (mat.startsWith("PLANT:")) {
-        if (mat.endsWith(":WOOD"))
-            return mat;
-        return "";
-    }
     return mat;
 }
 
@@ -4344,6 +4355,7 @@ function CompleteJobInfos(job) {
 
         var jn = job.name;
         var jtn = job.jobTypeName;
+        let noInItem = false;
 
         var newOut = {
             item: null,
@@ -4371,6 +4383,9 @@ function CompleteJobInfos(job) {
             }
 
             if (jtn == "PrepareMeal") {
+                newIn.flags = ["unrotten", "cookable", "solid"];
+                noInItem = true;
+
                 switch (job.mat_type) {
                     case "2":
                         key = "FOOD!ITEM_FOOD_BISCUITS/ALL";
@@ -4708,10 +4723,6 @@ function CompleteJobInfos(job) {
 
             if (newOut.item == null) {
                 switch (job.jobTypeName) {
-                    case "PrepareMeal":
-                        newOut.itemType = gm.items["FOOD"];
-                        newIn.flags = ["unrotten", "cookable", "solid"];
-                        break;
                     case "ConstructChest":
                         newOut.item = gm.items["BOX"];
                         newOut.condition = { flags: ["empty"], };
@@ -4752,7 +4763,7 @@ function CompleteJobInfos(job) {
 
 
         //create job inputs
-        if (!newIn.item) {
+        if (!newIn.item && !noInItem) {
             newIn.material = job.material;
             var materialType = gm.materials[job.material]?.Types[0] ?? job.material_category?.[0]?.toUpperCase() ?? "";
             switch (materialType) {
@@ -5444,9 +5455,8 @@ function GetDisplaybaleMaterialsPool() {
 
 
 
-function ToggleMissingItems(noToggle) {
-    if (!noToggle)
-        ToggleOption('hideMissingItems')
+function ToggleMissingItems() {
+    ToggleOption('hideMissingItems')
     RefreshStocksFilter();
 }
 
@@ -5706,11 +5716,17 @@ function GetOrderProducedItem(order) {
         return null;
 
     var job = GetJobFromOrder(order);
+    if (!job) {
+        cl("GetOrderProducedItem: could not find job for order id " + order.id);
+        return null;
+    }
 
-    if (job.reactionName == "BREW_DRINK_FROM_PLANT_GROWTH") {
-        return gm.items["DRINK!FRUIT"];
-    } else if (job.reactionName == "BREW_DRINK_FROM_PLANT") {
-        return gm.items["DRINK!PLANT"];
+    if (job.reactionName) {
+        if (job.reactionName == "BREW_DRINK_FROM_PLANT_GROWTH") {
+            return gm.items["DRINK!FRUIT"];
+        } else if (job.reactionName == "BREW_DRINK_FROM_PLANT") {
+            return gm.items["DRINK!PLANT"];
+        }
     }
 
     if (!job)
@@ -5737,13 +5753,16 @@ function SetOrderTargetQtt(order, qttDesired) {
         qttDesired = 0;
 
     if (OrderIsRepeating(order)) {
-        var producedItemCondition = GetOrderOutputItemCondition(order)
+        var producedItemConditions = GetOrderOutputItemConditions(order)
 
-        if (!producedItemCondition) {
+        if (!producedItemConditions) {
             Trace("Repeating order: could not find condition for output item.");
             return;
         }
-        producedItemCondition.value = qttDesired;
+
+        producedItemConditions.forEach(cond => {
+            cond.value = qttDesired;
+        });
     }
 
     let min = Math.min(GetOrderBatchSize(), qttDesired);
@@ -5754,17 +5773,17 @@ function SetOrderTargetQtt(order, qttDesired) {
             cond.value = min;
     });
 
-    if (!setOrderCokeNoLoop) {
+    if (!setComboOrderNoLoop) {
         if (order.jobInfo == ligniteCokeJob) {
-            setOrderCokeNoLoop = true;
+            setComboOrderNoLoop = true;
             SetJobTargetQtt(bituminousToCokeJob, min);
         }
         if (order.jobInfo == bituminousToCokeJob) {
-            setOrderCokeNoLoop = true;
+            setComboOrderNoLoop = true;
             SetJobTargetQtt(ligniteCokeJob, min);
         }
     }
-    setOrderCokeNoLoop = false;
+    setComboOrderNoLoop = false;
 
     UpdateChangedJobQtt(order);
 }
@@ -5801,7 +5820,7 @@ function UpdateChangedJobQtt(order) {
         DeleteOrder(order);
     } else {
         if (order.deleted)
-            ToggleDeleteOrder
+            ToggleDeleteOrder(order)
         if (changed)
             MarkEdited(order);
     }
@@ -5858,7 +5877,7 @@ function OrderIsRepeating(order) {
     return order.item_conditions != null && order.item_conditions.length > 0 && order.item_conditions.some(cond => cond.condition == "LessThan");
 }
 
-function GetOrderOutputItemCondition(order) {
+function GetOrderOutputItemConditions(order) {
 
     GetJobFromOrder(order);
     if (!order.jobInfo) {
@@ -5877,11 +5896,13 @@ function GetOrderOutputItemCondition(order) {
     if (!order.item_conditions)
         return null;
 
-    return order.item_conditions.find(cond =>
+    return order.item_conditions.filter(cond =>
         cond.condition == "LessThan"
         &&
         (
             (isFood && cond.item_type == "FOOD")
+            ||
+            (job.isCrafts && craftTypes.includes(cond.item_type))
             ||
             (
                 ((cond.item_subtype?.toUpperCase() ?? "") == (outItem.subtypeName?.toUpperCase() ?? ""))
@@ -5962,6 +5983,10 @@ function CreateGraph(key, maxValue = null) {
             } else {
                 span.innerHTML = itemName;
             }
+            span.onclick = () => {
+                $("#generalFilter")[0].value = itemName;
+                $("#generalFilter")[0].dispatchEvent(new Event("change"));
+            };
         }
         div.setAttribute("title", itemName);
 
@@ -5975,12 +6000,21 @@ function CreateGraph(key, maxValue = null) {
                 input.type = "number";
                 input.classList.add("inputNumber");
                 input.value = maxValue ?? GetDefaultGraphMax();
+                input.addEventListener("keyup", (e) => { SetGraphMax(key, e.target.value); });
                 input.addEventListener("change", (e) => { SetGraphMax(key, e.target.value); });
                 input.setAttribute("title", "Set the maximum value of the graph. If the stock values exceed this value, the graph will display a dashed line.");
             }
         }
 
-
+        span = document.createElement("span");
+        div.appendChild(span);
+        span.classList.add("keyInfo");
+        span.innerText = "^CLICK = DELETE";
+        div.onclick = () => {
+            const k = key;
+            if (IsCtrlPressed() || IsShiftPressed())
+                ToggleDisplayGraph(k);
+        };
     }
     document.querySelector(".graphsContent").appendChild(div);
 
@@ -6134,7 +6168,7 @@ function GetGraphHeight() {
 
 function GetGraphWidth() {
     let old = config.graphsWidth;
-    config.graphsWidth = Math.max(min_graphsWidth, Math.min(max_graphsWidth, parseInt(config.graphsWidth) || 100));
+    config.graphsWidth = Math.max(min_graphsWidth, Math.min(max_graphsWidth, parseInt(config.graphsWidth) || 150));
     if (old != config.graphsWidth)
         SaveConfig();
     return parseInt(config.graphsWidth);

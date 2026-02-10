@@ -28,3 +28,13 @@
 ## [0.1.4] - 2026-02-07
 - Fixed bug in graphs polling rate
 - Adapted code to be compatible with Linux
+
+## [0.1.5] - 2026-02-10
+- Using the filter field now show results amongst all items, regardless if "show only items in stock" is active
+- Clicking on graphs title fills the item name into the filter
+- Added ctrl+click on graphs to remove them
+- Added a '?' tips container for graphs
+- Fixed a bug with items contained not being properly accounted for (important for drinks & food)
+- Fixed a bug with Food production conditions
+- Fixed a bug with Crafts production conditions
+- Fixed a bug with total Wheelbarrows total not displayed
