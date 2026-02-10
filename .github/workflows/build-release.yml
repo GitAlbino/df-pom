@@ -66,6 +66,8 @@ jobs:
             out/make/**/*.deb
             out/make/**/*.rpm
             out/make/**/*.zip
+            out/make/**/RELEASES
+            out/make/**/latest.yml
           if-no-files-found: warn
 
   release:
@@ -110,6 +112,9 @@ jobs:
             artifacts/**/*.deb
             artifacts/**/*.rpm
             artifacts/**/*.zip
+            artifacts/**/*.nupkg
+            artifacts/**/RELEASES
+            artifacts/**/latest.yml
           generate_release_notes: true
           draft: false
           prerelease: ${{ contains(github.ref, 'alpha') || contains(github.ref, 'beta') }}
