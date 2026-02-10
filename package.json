@@ -50,6 +50,7 @@
     "electron": "^39.2.6"
   },
   "dependencies": {
+    "electron-log": "^5.4.3",
     "electron-squirrel-startup": "^1.0.1",
     "electron-updater": "^6.7.3",
     "fuse.js": "^7.1.0",

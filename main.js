@@ -1,7 +1,13 @@
 const { app, BrowserWindow, shell, ipcMain, dialog, globalShortcut, clipboard } = require("electron");
 const { autoUpdater } = require('electron-updater');
+const log = require('electron-log');
 const { version } = require('./package.json');
 console.log('App version:', version);
+
+// Configure auto-updater logging
+autoUpdater.logger = log;
+autoUpdater.logger.transports.file.level = 'debug';
+log.info('App starting, version:', version);
 
 const path = require("path");
 const fs = require("fs");
@@ -105,13 +111,19 @@ app.whenReady().then(async () => {
     await ReadConfig();
     if (config.autoUpdate)
     {
+        log.info('Auto-update enabled, configuring...');
         autoUpdater.setFeedURL({
             provider: 'github',
             owner: 'GitAlbino',
             repo: 'df-pom'
         });
         autoUpdater.allowPrerelease = true;
-        autoUpdater.checkForUpdatesAndNotify();
+        log.info('Checking for updates...');
+        autoUpdater.checkForUpdatesAndNotify().then((result) => {
+            log.info('Update check result:', result);
+        }).catch((err) => {
+            log.error('Update check failed:', err);
+        });
     }
 
     CreateWindow();
