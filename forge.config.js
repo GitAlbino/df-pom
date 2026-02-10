@@ -67,4 +67,27 @@ module.exports = {
       [FuseV1Options.OnlyLoadAppFromAsar]: true,
     }),
   ],
+  hooks: {
+    postMake: async (config, makeResults) => {
+      const path = require('path');
+      const fs = require('fs');
+
+      for (const result of makeResults) {
+        for (let i = 0; i < result.artifacts.length; i++) {
+          const artifact = result.artifacts[i];
+          if (artifact.endsWith('.zip')) {
+            const dir = path.dirname(artifact);
+            const newName = `DF-Pom_${result.platform}_${result.arch}.zip`;
+            const newPath = path.join(dir, newName);
+
+            fs.renameSync(artifact, newPath);
+            console.log(`Renamed: ${artifact} → ${newPath}`);
+
+            result.artifacts[i] = newPath;
+          }
+        }
+      }
+      return makeResults;
+    }
+  }
 };

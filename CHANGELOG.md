@@ -38,3 +38,7 @@
 - Fixed a bug with Food production conditions
 - Fixed a bug with Crafts production conditions
 - Fixed a bug with total Wheelbarrows total not displayed
+
+## [0.1.6] - 2026-02-10
+- Added autoupdate support
+- Renamed release .zip file
