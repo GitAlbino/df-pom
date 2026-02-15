@@ -4,4 +4,8 @@ status = status .. '\"site\":\"' .. tostring(dfhack.world.getCurrentSite()) .. '
 status = status .. '\"paused\":\"' .. tostring(dfhack.world.ReadPauseState()) .. '\",'
 status = status .. '\"workOrderConditionOpen\":\"' .. tostring(df.global.game.main_interface.info.work_orders.conditions.open) .. '\"'
 status = status .. '}'
-dfhack.internal.setClipboardTextCp437(status)
+print("DFPOM_STATUS_JSON:" .. status)
+-- Safely attempt clipboard write (may fail on some DFHack versions)
+if dfhack.internal and dfhack.internal.setClipboardTextCp437 then
+	dfhack.internal.setClipboardTextCp437(status)
+end
