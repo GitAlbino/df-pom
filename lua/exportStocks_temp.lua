@@ -80,8 +80,4 @@ for key, value in pairs(counts) do
 end
 
 print("DFPOM_STOCKS:" .. output)
--- Safely attempt clipboard write (may fail on some DFHack versions)
-if dfhack.internal and dfhack.internal.setClipboardTextCp437 then
-	dfhack.internal.setClipboardTextCp437(output)
-end
 collectgarbage()
