@@ -51,3 +51,6 @@
 
 ## [0.2.2] - 2026-02-19
 - Fixed: Selecting the wrong path at startup prevents your from correcting it later
+
+## [0.3.0] - 2026-02-19
+- Now works on Linux (with native Dwarf Fortress, not Proton wrapped)

@@ -1,19 +1,17 @@
 const { app, BrowserWindow, shell, autoUpdater, ipcMain, dialog, globalShortcut, clipboard } = require("electron");
 const log = require('electron-log');
 const { version } = require('./package.json');
-console.log('App version:', version);
-
-log.info('App starting, version:', version);
-
 const path = require("path");
 const fs = require("fs");
 const { runInThisContext } = require("vm");
 const CONFIG_NAME = "dfpom-config.json";
 const ORDERS_NAME = "dfpom-orders.json";
 const CONFIG_PATH = path.join(app.getPath("userData"), CONFIG_NAME);
-const { execFile } = require('node:child_process');
+const { execFile, exec } = require('node:child_process');
 const { ref } = require("node:process");
 const { resolve } = require("node:dns");
+
+let nodePty = null;
 let config = {};
 var mainWindow;
 var saveWindowsPosTimeout = null;
@@ -41,9 +39,97 @@ var missingDFHackError = {
 
 function cl(msg) { console.log(msg); }
 
+cl("DF-Pom version: " + version);
+
 
 function DFHackRunName() {
     return process.platform === 'win32' ? 'dfhack-run.exe' : 'dfhack-run';
+}
+
+function GetChildEnv() {
+    try {
+        if (process.platform !== 'linux')
+            return process.env;
+
+        const procs = fs.readdirSync('/proc').filter(n => /^\d+$/.test(n));
+        for (let pid of procs) {
+            try {
+                const cmd = fs.readFileSync(path.join('/proc', pid, 'cmdline'), 'utf8');
+                if (cmd && cmd.includes('dwarfort')) {
+                    const envRaw = fs.readFileSync(path.join('/proc', pid, 'environ'), 'utf8');
+                    const parts = envRaw.split('\0').filter(Boolean);
+                    const env = Object.assign({}, process.env);
+                    for (let p of parts) {
+                        const i = p.indexOf('=');
+                        if (i > 0)
+                            env[p.slice(0, i)] = p.slice(i + 1);
+                    }
+                    // Remove LD_PRELOAD coming from Steam (often points to 32-bit gameoverlayrenderer)
+                    // which can crash 64-bit child processes. Keep other vars.
+                    if (env.LD_PRELOAD)
+                        delete env.LD_PRELOAD;
+                    return env;
+                }
+            } catch (e) {
+                // ignore
+            }
+        }
+    } catch (e) {
+        // ignore
+    }
+    return process.env;
+}
+
+function shellEscape(s) {
+    return "'" + String(s).replace(/'/g, "'\\''") + "'";
+}
+
+function ExecDFHack(dfhackPath, args, options, callback) {
+    // On Linux, try node-pty for PTY support
+    if (process.platform === 'linux') {
+        if (!nodePty) {
+            try {
+                nodePty = require('node-pty');
+            } catch (e) {
+                // node-pty not installed, fallback to execFile
+            }
+        }
+        if (nodePty) {
+            let output = '';
+            const ptyProcess = nodePty.spawn(dfhackPath, args, {
+                name: 'xterm-color',
+                cols: 80,
+                rows: 30,
+                cwd: options.cwd,
+                env: options.env
+            });
+            ptyProcess.on('data', function(data) {
+                output += data;
+            });
+            ptyProcess.on('exit', function(code, signal) {
+                let error = null;
+                if (code !== 0) {
+                    error = new Error('PTY process exited with code ' + code + (signal ? (' signal ' + signal) : ''));
+                    error.code = code;
+                    error.signal = signal;
+                }
+                callback(error, output, '');
+            });
+            return;
+        }
+    }
+    // Fallback: direct execFile
+    try {
+        execFile(dfhackPath, args, options, (error, stdout, stderr) => {
+            callback(error, stdout, stderr);
+        });
+    } catch (e) {
+        // Fallback to shell execution on unexpected failures
+        const cmd = [dfhackPath].concat(args || []).map(shellEscape).join(' ');
+        exec(cmd, Object.assign({}, options, { shell: true }), (err2, stdout2, stderr2) => {
+            callback(err2, stdout2, stderr2);
+        });
+    }
 }
 
 
@@ -298,7 +384,7 @@ ipcMain.handle("GetGameStatus", async (e) => {
             }
 
             var oldClipboard = clipboard.readText();
-            execFile(dfhackPath, args, async (error, stdout, stderr) => {
+            ExecDFHack(dfhackPath, args, { cwd: config.dwarfPath, env: GetChildEnv() }, async (error, stdout, stderr) => {
                 await pause(200);
                 
                 // Try to extract data from stdout first (marked with DFPOM_STATUS_JSON:)
@@ -325,7 +411,7 @@ ipcMain.handle("GetGameStatus", async (e) => {
                         error: {
                             title: "Waiting for Dwarf Fortress...",
                             msg: "Please start the game and load a Fortress.",
-                            context: "GetGameStatus2",
+                            context: "GetGameStatus2 " + JSON.stringify(error),
                             buttons: ["WAIT"],
                             errorObj: error
                         }
@@ -414,7 +500,7 @@ ipcMain.handle("GetGameInfos", async (e) => {
             }
 
             var oldClipboard = clipboard.readText();
-            execFile(dfhackPath, args, async (error, stdout, stderr) => {
+            ExecDFHack(dfhackPath, args, { cwd: config.dwarfPath, env: GetChildEnv() }, async (error, stdout, stderr) => {
                 await pause(200);
                 if (error) {
                     data = {
@@ -516,7 +602,7 @@ ipcMain.handle("GetJobsInfos", async () => {
             }
 
             var oldClipboard = clipboard.readText();
-            execFile(dfhackPath, args, async (error, stdout, stderr) => {
+            ExecDFHack(dfhackPath, args, { cwd: config.dwarfPath, env: GetChildEnv() }, async (error, stdout, stderr) => {
                 await pause(50);
                 if (error) {
                     data = {
@@ -622,7 +708,7 @@ ipcMain.handle("GetStocks", async () => {
             }
 
             var oldClipboard = clipboard.readText();
-            execFile(dfhackPath, args, async (error, stdout, stderr) => {
+            ExecDFHack(dfhackPath, args, { cwd: config.dwarfPath, env: GetChildEnv() }, async (error, stdout, stderr) => {
                 await pause(50);
                 if (error) {
                     data = {
@@ -732,7 +818,7 @@ ipcMain.handle("ReadOrdersFile", async () => {
                 return;
             }
 
-            execFile(dfhackPath, args, (error) => {
+            ExecDFHack(dfhackPath, args, { cwd: config.dwarfPath, env: GetChildEnv() }, (error) => {
                 if (error) {
                     data = {
                         error: {
@@ -806,7 +892,7 @@ async function SendToDF() {
             }
 
             //clear orders command
-            execFile(dfhackPath, args1, (error) => {
+                ExecDFHack(dfhackPath, args1, { cwd: config.dwarfPath, env: GetChildEnv() }, (error) => {
                 if (error) {
                     data = {
                         error: {
@@ -823,7 +909,7 @@ async function SendToDF() {
                 }
 
                 //import orders command
-                execFile(dfhackPath, args2, (error) => {
+                ExecDFHack(dfhackPath, args2, { cwd: config.dwarfPath, env: GetChildEnv() }, (error) => {
                     if (error) {
                         data = {
                             error: {
@@ -1036,3 +1122,4 @@ function GetDataPath() {
 function DwarfFortressExeName() {
     return process.platform === 'win32' ? 'Dwarf Fortress.exe' : 'dwarfort';
 }
+
