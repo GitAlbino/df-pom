@@ -611,7 +611,7 @@ body {
             transition: max-height 0.3s ease-in-out;
 
             &:hover {
-                max-height: 30px;
+                max-height: 300px;
             }
         }
 
