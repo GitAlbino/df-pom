@@ -112,6 +112,7 @@ function ExecDFHack(dfhackPath, args, options, callback) {
                     error = new Error('PTY process exited with code ' + code + (signal ? (' signal ' + signal) : ''));
                     error.code = code;
                     error.signal = signal;
+                    error.name = 'PTY Error';
                 }
                 callback(error, output, '');
             });
@@ -1113,8 +1114,11 @@ async function pause(milliseconds) {
 
 
 function GetDataPath() {
-    if (app.isPackaged)
-        return path.join(path.dirname(process.execPath), "resources");
+    if (app.isPackaged) {
+        // Use Electron-provided resources path when packaged
+        // `process.resourcesPath` points to the application's resources directory
+        return process.resourcesPath;
+    }
     return __dirname;
 }
 
