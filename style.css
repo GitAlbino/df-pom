@@ -2890,7 +2890,7 @@ body {
 
     &.changelog,
     &.updateInfo {
-        z-index: 10;
+        z-index: 105;
     }
 
     &.updateInfo p {
