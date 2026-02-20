@@ -377,6 +377,17 @@ ipcMain.handle("GetGameStatus", async (e) => {
         let luaScriptPath = path.join(GetDataPath(), "lua", "gameStatus.lua");
         let args = ["lua", "-f", luaScriptPath];
 
+        let couille=""
+
+        // Debug: log resolved lua script path and access - helps diagnose packaged app issues
+        couille = "Resolved gameStatus.lua path: " + luaScriptPath + " exists:" + fs.existsSync(luaScriptPath)
+        try {
+            fs.accessSync(luaScriptPath, fs.constants.R_OK);
+            couille += "\ngameStatus.lua readable: true";
+        } catch (e) {
+            couille += "\ngameStatus.lua access error: " + e.message;
+        }
+
         fs.access(dfhackPath, fs.constants.F_OK | fs.constants.X_OK, (err) => {
             if (err) {
                 resolve(GetMissingDFHackError("GetGameStatus1"));
@@ -414,8 +425,10 @@ ipcMain.handle("GetGameStatus", async (e) => {
                             context: "GetGameStatus2 code:" + (error.code || '') + " signal:" + (error.signal || ''),
                             buttons: ["WAIT"],
                             errorObj: { error: error, stdout: stdout, stderr: stderr },
-                            prout: "rp: "+process.resourcesPath + " / ep: " + process.execPath + " / dn: " + __dirname,
-                            args: args
+                            prout: "aarr rp: "+process.resourcesPath + " / ep: " + process.execPath + " / dn: " + __dirname,
+                            ezaeaz: JSON.stringify(args),
+                            args: args,
+                            couille: couille
                         }
                     };
                     cl(data);
