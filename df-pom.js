@@ -6250,3 +6250,7 @@ function Interpolate(min, max, ratio) {
 window.api.UpdateAvailable(() => {
     $(".updateInfo")[0].classList.remove("hidden");
 });
+
+async function ResetPath() {
+     result = await window.api.SetDFHackPath();
+}

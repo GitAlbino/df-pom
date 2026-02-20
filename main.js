@@ -411,9 +411,9 @@ ipcMain.handle("GetGameStatus", async (e) => {
                         error: {
                             title: "Waiting for Dwarf Fortress...",
                             msg: "Please start the game and load a Fortress.",
-                            context: "GetGameStatus2 " + JSON.stringify(error),
+                            context: "GetGameStatus2 code:" + (error.code || '') + " signal:" + (error.signal || ''),
                             buttons: ["WAIT"],
-                            errorObj: error
+                            errorObj: { error: error, stdout: stdout, stderr: stderr }
                         }
                     };
                     cl(data);
@@ -507,8 +507,9 @@ ipcMain.handle("GetGameInfos", async (e) => {
                         error: {
                             title: "Waiting for Dwarf Fortress...",
                             msg: "Please start the game and load a Fortress.",
-                            context: "GetGameInfos2",
-                            buttons: ["WAIT"]
+                            context: "GetGameInfos2 code:" + (error.code || '') + " signal:" + (error.signal || ''),
+                            buttons: ["WAIT"],
+                            errorObj: { error: error, stdout: stdout, stderr: stderr }
                         }
                     };
                     cl(data);
@@ -607,10 +608,11 @@ ipcMain.handle("GetJobsInfos", async () => {
                 if (error) {
                     data = {
                         error: {
-                            title: "Waiting for Dwarf Fortress...",
+                            title: "Waiting for Job Orders",
                             msg: "Please open the 'Job Orders > Create Task' menu once to allow data extraction.",
-                            context: "GetJobsInfos2a",
-                            icon: "orders icon.png"
+                            context: "GetJobsInfos2a code:" + (error.code || '') + " signal:" + (error.signal || ''),
+                            icon: "orders icon.png",
+                            errorObj: { error: error, stdout: stdout, stderr: stderr }
                         }
                     };
                     cl(data);
@@ -715,8 +717,9 @@ ipcMain.handle("GetStocks", async () => {
                         error: {
                             title: "Waiting for Dwarf Fortress...",
                             msg: "Please start the game and load a Fortress.",
-                            context: "GetStocks2",
-                            buttons: ["WAIT"]
+                            context: "GetStocks2 code:" + (error.code || '') + " signal:" + (error.signal || ''),
+                            buttons: ["WAIT"],
+                            errorObj: { error: error, stdout: stdout, stderr: stderr }
                         }
                     };
                     cl(data);
@@ -1114,8 +1117,19 @@ async function pause(milliseconds) {
 
 
 function GetDataPath() {
-    if (app.isPackaged)
-        return path.join(path.dirname(process.execPath), "resources");
+    if (!app.isPackaged)
+        return __dirname;
+
+    // When packaged, resources may be inside an asar archive which
+    // external binaries cannot read. Prefer the 'app.asar.unpacked' folder
+    // (where we should arrange to place the lua scripts), then the
+    // resources folder, and finally fall back to __dirname.
+    const resourcesPath = process.resourcesPath || path.join(path.dirname(process.execPath), "resources");
+    const unpacked = path.join(resourcesPath, "app.asar.unpacked");
+    if (fs.existsSync(unpacked))
+        return unpacked;
+    if (fs.existsSync(path.join(resourcesPath, "lua")))
+        return resourcesPath;
     return __dirname;
 }
 
