@@ -1125,11 +1125,19 @@ function GetDataPath() {
     // (where we should arrange to place the lua scripts), then the
     // resources folder, and finally fall back to __dirname.
     const resourcesPath = process.resourcesPath || path.join(path.dirname(process.execPath), "resources");
-    const unpacked = path.join(resourcesPath, "app.asar.unpacked");
-    if (fs.existsSync(unpacked))
-        return unpacked;
-    if (fs.existsSync(path.join(resourcesPath, "lua")))
+
+    // Some package managers (RPM) install the Lua files under
+    // resources/lua (not inside app.asar.unpacked). Prefer that
+    // location when present so the app finds the scripts.
+    const luaAtResources = path.join(resourcesPath, "lua");
+    if (fs.existsSync(luaAtResources))
         return resourcesPath;
+
+    // Fallback to app.asar.unpacked only when it contains a lua folder.
+    const unpacked = path.join(resourcesPath, "app.asar.unpacked");
+    if (fs.existsSync(unpacked) && fs.existsSync(path.join(unpacked, "lua")))
+        return unpacked;
+
     return __dirname;
 }
 
