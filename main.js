@@ -413,7 +413,8 @@ ipcMain.handle("GetGameStatus", async (e) => {
                             msg: "Please start the game and load a Fortress.",
                             context: "GetGameStatus2 code:" + (error.code || '') + " signal:" + (error.signal || ''),
                             buttons: ["WAIT"],
-                            errorObj: { error: error, stdout: stdout, stderr: stderr }
+                            errorObj: { error: error, stdout: stdout, stderr: stderr },
+                            prout: "rp: "+process.resourcesPath + " / ep: " + process.execPath + " / dn: " + __dirname
                         }
                     };
                     cl(data);
@@ -507,7 +508,7 @@ ipcMain.handle("GetGameInfos", async (e) => {
                         error: {
                             title: "Waiting for Dwarf Fortress...",
                             msg: "Please start the game and load a Fortress.",
-                            context: "GetGameInfos2 code:" + (error.code || '') + " signal:" + (error.signal || ''),
+                            context: "GetGameInfos2 code:" + (error.code || '') + " signal:" + (error.signal || '') + "rp: "+process.resourcesPath + " / ep: " + process.execPath + " / dn: " + __dirname,
                             buttons: ["WAIT"],
                             errorObj: { error: error, stdout: stdout, stderr: stderr },
                             prout: "rp: "+process.resourcesPath + " / ep: " + process.execPath + " / dn: " + __dirname
