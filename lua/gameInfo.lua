@@ -11,7 +11,9 @@ local IS_GEM_FLAG = 48
 local IS_GLASS_FLAG = 49
 local IS_STONE_FLAG = 60
 local IS_CERAMIC_FLAG = 74
-local IGNORED_ITEMS = {'IGNORED_ITEMS_LIST'};
+local _ignoredItemsArg = ...
+local IGNORED_ITEMS = {}
+for item in (_ignoredItemsArg or ""):gmatch("[^,]+") do table.insert(IGNORED_ITEMS, item) end
 local fullItemName = ''
 
 output = output .. '\"job_material_category\" : {'

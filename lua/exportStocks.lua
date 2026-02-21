@@ -1,5 +1,6 @@
-local startIndex = 69420;
-local maxScans = 69421;
+local _startIndex, _maxScans = ...
+local startIndex = tonumber(_startIndex) or 0
+local maxScans = tonumber(_maxScans) or 1000
 local counts = {}
 local listFields = false
 local isFirst = true
@@ -10,13 +11,6 @@ local name = ''
 local mi ='';
 local subDef = nil;
 local containedItems;
-
-if startIndex == 69420 then
-	startIndex = 0
-end
-if maxScans == 69420 then
-	maxScans = 1000
-end
 
 
 for _, item in ipairs(df.global.world.items.other.IN_PLAY) do

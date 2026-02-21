@@ -1,5 +1,6 @@
-local startJobIndex = 69420;
-local maxJobs = 69421;
+local _startJobIndex, _maxJobs = ...
+local startJobIndex = tonumber(_startJobIndex) or 0
+local maxJobs = tonumber(_maxJobs) or 1000
 
 local output = '{ \"jobs\":['
 
