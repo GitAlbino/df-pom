@@ -279,7 +279,7 @@ async function DataAutoUpdater() {
                 lastGameStatusCheck = Date.now();
                 const ok = await GetGameStatus();
                 if (!ok) {
-                    return; // Skip operations if game status check fails
+                    return; // Skip operations if game status check fails — finally still reschedules
                 }
             }
 
@@ -290,10 +290,8 @@ async function DataAutoUpdater() {
         console.error("Error in DataAutoUpdater:", e);
     } finally {
         m_autoUpdateRunning = false;
+        setTimeout(DataAutoUpdater, 500); // Always reschedule, even on early return or error
     }
-
-    // Schedule next cycle 150ms after THIS cycle completes
-    setTimeout(DataAutoUpdater, 150);
 }
 
 function ResetApp() {
@@ -833,22 +831,25 @@ function UpdateOrdersTable(updateSmeltingButtons = true) {
 
             if (propInfo.isToggle) {
                 cell.classList.add("toggleable");
-                cell.addEventListener("mouseup", (e) => {
-                    e.stopPropagation();
-                    if (e.button != 0)
-                        return;
+                if (!cell.dataset.listenerAdded) {
+                    cell.addEventListener("mouseup", (e) => {
+                        e.stopPropagation();
+                        if (e.button != 0)
+                            return;
 
-                    order[property] = !order[property];
-                    if (order[property] === true) {
-                        order[property + "_cell"].textContent = "YES";
-                        order[property + "_cell"].classList.add("isTrue");
-                        order[property + "_cell"].classList.remove("isFalse");
-                    } else {
-                        order[property + "_cell"].textContent = "NO";
-                        order[property + "_cell"].classList.add("isFalse");
-                        order[property + "_cell"].classList.remove("isTrue");
-                    }
-                });
+                        order[property] = !order[property];
+                        if (order[property] === true) {
+                            order[property + "_cell"].textContent = "YES";
+                            order[property + "_cell"].classList.add("isTrue");
+                            order[property + "_cell"].classList.remove("isFalse");
+                        } else {
+                            order[property + "_cell"].textContent = "NO";
+                            order[property + "_cell"].classList.add("isFalse");
+                            order[property + "_cell"].classList.remove("isTrue");
+                        }
+                    });
+                    cell.dataset.listenerAdded = "1";
+                }
             }
 
             var cellText = order[property];

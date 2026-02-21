@@ -14,28 +14,28 @@ const ORDERS_NAME = "dfpom-orders.json";
 const CONFIG_PATH = path.join(app.getPath("userData"), CONFIG_NAME);
 const DB_PATH = path.join(app.getPath("userData"), "dfpom-data.db");
 const { execFile } = require('node:child_process');
-const { ref } = require("node:process");
-const { resolve } = require("node:dns");
 let config = {};
 var mainWindow;
 var saveWindowsPosTimeout = null;
 var stocksReaderStartIndex = 0;
-var stocksReaderMaxScans = 5000;
+var stocksReaderMaxScans = 10000;
 var readingStuff = false;
 var jobsInfosStartIndex = 0;
 var jobsInfosMaxScans = 1000;
-var gameInfoLuaUpdated = false;
 let db = null;
+let dbInsertCount = 0;
 
 // ============ PERFORMANCE MONITORING ============
 let processSpawnLog = [];
 let processSpawnCount = 0;
+let spawnCountInWindow = 0;
 let lastLogDump = Date.now();
 const LOG_DUMP_INTERVAL = 10000; // Dump log every 10 seconds
 
 function LogProcessSpawn(scriptName, context) {
 	const now = Date.now();
 	processSpawnCount++;
+	spawnCountInWindow++;
 	const entry = {
 		timestamp: new Date().toISOString(),
 		script: scriptName,
@@ -43,29 +43,26 @@ function LogProcessSpawn(scriptName, context) {
 		count: processSpawnCount
 	};
 	processSpawnLog.push(entry);
-	
-	// Keep only last 100 entries
+
+	// Keep only last 100 entries for the recent-rate warning check
 	if (processSpawnLog.length > 100) {
 		processSpawnLog.shift();
 	}
-	
+
 	// Periodically dump stats to console
 	if (now - lastLogDump > LOG_DUMP_INTERVAL) {
 		const elapsed = (now - lastLogDump) / 1000;
-		const spawnRate = (processSpawnLog.length / LOG_DUMP_INTERVAL * 1000).toFixed(1);
-		console.log(`[PERF] Process spawns in last ${(elapsed).toFixed(0)}s: ${processSpawnLog.length} | Rate: ${spawnRate}/sec`);
+		const spawnRate = (spawnCountInWindow / elapsed).toFixed(1);
+		console.log(`[PERF] Process spawns in last ${elapsed.toFixed(0)}s: ${spawnCountInWindow} | Rate: ${spawnRate}/sec`);
 		lastLogDump = now;
+		spawnCountInWindow = 0;
 	}
-	
-	// Warn if spawn rate is excessive (more than 10/sec)
-	if (processSpawnLog.filter(e => now - new Date(e.timestamp) < 1000).length > 10) {
-		console.warn(`⚠️  HIGH PROCESS SPAWN RATE DETECTED! (${processSpawnLog.filter(e => now - new Date(e.timestamp) < 1000).length}/sec)`);
-	}
-}
 
-// Helper function for controlled delays
-function pause(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
+	// Warn if spawn rate is excessive (more than 10/sec)
+	const recentCount = processSpawnLog.filter(e => now - new Date(e.timestamp) < 1000).length;
+	if (recentCount > 10) {
+		console.warn(`⚠️  HIGH PROCESS SPAWN RATE DETECTED! (${recentCount}/sec)`);
+	}
 }
 
 // ============ DATABASE INITIALIZATION ============
@@ -106,62 +103,36 @@ function InitializeDatabase() {
 					data_json TEXT NOT NULL
 				)`);
 
-				// Create cleanup triggers - keep last 2000 entries AND entries from last 7 days
-				// game_status: delete old entries
-				db.run(`CREATE TRIGGER IF NOT EXISTS cleanup_game_status
-					AFTER INSERT ON game_status
-					BEGIN
-						DELETE FROM game_status WHERE id NOT IN (
-							SELECT id FROM game_status ORDER BY timestamp DESC LIMIT 2000
-						) AND timestamp < datetime('now', '-7 days');
-					END`);
-
-				// game_infos: delete old entries (static data, but keep history)
-				db.run(`CREATE TRIGGER IF NOT EXISTS cleanup_game_infos
-					AFTER INSERT ON game_infos
-					BEGIN
-						DELETE FROM game_infos WHERE id NOT IN (
-							SELECT id FROM game_infos ORDER BY timestamp DESC LIMIT 2000
-						) AND timestamp < datetime('now', '-7 days');
-					END`);
-
-				// job_infos: delete old entries
-				db.run(`CREATE TRIGGER IF NOT EXISTS cleanup_job_infos
-					AFTER INSERT ON job_infos
-					BEGIN
-						DELETE FROM job_infos WHERE id NOT IN (
-							SELECT id FROM job_infos ORDER BY timestamp DESC LIMIT 2000
-						) AND timestamp < datetime('now', '-7 days');
-					END`);
-
-				// stocks: aggressive cleanup - keep only last 1000 entries (changes frequently)
-				db.run(`CREATE TRIGGER IF NOT EXISTS cleanup_stocks
-					AFTER INSERT ON stocks
-					BEGIN
-						DELETE FROM stocks WHERE id NOT IN (
-							SELECT id FROM stocks ORDER BY timestamp DESC LIMIT 1000
-						) AND timestamp < datetime('now', '-3 days');
-					END`, (err) => {
-						if (err) {
-							console.error("Trigger creation error:", err);
-							reject(err);
-						} else {
-							console.log("Database tables and triggers initialized successfully");
-							resolve();
-						}
-					});
+					db.run("SELECT 1", (err) => {
+					if (err) {
+						reject(err);
+					} else {
+						console.log("Database tables initialized successfully");
+						resolve();
+					}
+				});
 			});
 		});
 	});
 }
 
 // DB Write/Read helpers
+function PeriodicDbCleanup() {
+	db.run("DELETE FROM stocks WHERE id NOT IN (SELECT id FROM stocks ORDER BY id DESC LIMIT 1000)");
+	db.run("DELETE FROM game_status WHERE id NOT IN (SELECT id FROM game_status ORDER BY id DESC LIMIT 2000)");
+	db.run("DELETE FROM game_infos WHERE id NOT IN (SELECT id FROM game_infos ORDER BY id DESC LIMIT 2000)");
+	db.run("DELETE FROM job_infos WHERE id NOT IN (SELECT id FROM job_infos ORDER BY id DESC LIMIT 2000)");
+}
+
 function InsertGameStatus(data) {
 	return new Promise((resolve, reject) => {
 		if (!db) reject(new Error("Database not initialized"));
 		db.run("INSERT INTO game_status (data_json) VALUES (?)", [JSON.stringify(data)], function(err) {
 			if (err) reject(err);
-			else resolve(this.lastID);
+			else {
+				if (++dbInsertCount % 100 === 0) PeriodicDbCleanup();
+				resolve(this.lastID);
+			}
 		});
 	});
 }
@@ -171,7 +142,10 @@ function InsertGameInfos(data) {
 		if (!db) reject(new Error("Database not initialized"));
 		db.run("INSERT INTO game_infos (data_json) VALUES (?)", [JSON.stringify(data)], function(err) {
 			if (err) reject(err);
-			else resolve(this.lastID);
+			else {
+				if (++dbInsertCount % 100 === 0) PeriodicDbCleanup();
+				resolve(this.lastID);
+			}
 		});
 	});
 }
@@ -181,7 +155,10 @@ function InsertJobInfos(data) {
 		if (!db) reject(new Error("Database not initialized"));
 		db.run("INSERT INTO job_infos (data_json) VALUES (?)", [JSON.stringify(data)], function(err) {
 			if (err) reject(err);
-			else resolve(this.lastID);
+			else {
+				if (++dbInsertCount % 100 === 0) PeriodicDbCleanup();
+				resolve(this.lastID);
+			}
 		});
 	});
 }
@@ -191,7 +168,10 @@ function InsertStocks(data) {
 		if (!db) reject(new Error("Database not initialized"));
 		db.run("INSERT INTO stocks (data_json) VALUES (?)", [JSON.stringify(data)], function(err) {
 			if (err) reject(err);
-			else resolve(this.lastID);
+			else {
+				if (++dbInsertCount % 100 === 0) PeriodicDbCleanup();
+				resolve(this.lastID);
+			}
 		});
 	});
 }
@@ -433,7 +413,6 @@ function CreateConfigFile() {
 
 ipcMain.handle("ResetApp", async (e) => {
     jobsInfosStartIndex = 0;
-    gameInfoLuaUpdated = false;
     readingStuff = false;
     stocksReaderStartIndex = 0;
 });
@@ -600,23 +579,9 @@ ipcMain.handle("GetGameInfos", async (e) => {
         }
         let dfhackPath = path.join(config.dwarfPath, DFHackRunName());
 
-        let luaScriptUsePath = path.join(GetDataPath(), "lua", "gameInfo_use.lua");
-        if (!gameInfoLuaUpdated) {
-            //read template, prepare used model
-            let luaScriptPath = path.join(GetDataPath(), "lua", "gameInfo.lua");
-
-            let luaScriptContent = fs.readFileSync(luaScriptPath, "utf-8");
-            if (!config.ignoredItems)
-                config.ignoredItems = [];
-            luaScriptContent = luaScriptContent.replace("'IGNORED_ITEMS_LIST'", `'` + config.ignoredItems.join(`','`) + `'`);
-            fs.writeFileSync(luaScriptUsePath, luaScriptContent, "utf-8");
-            gameInfoLuaUpdated = true;
-        }
-
-        //write used model
-
-        cl("Executing dfhack-run... " + luaScriptUsePath);
-        let args = ["lua", "-f", luaScriptUsePath];
+        let luaScriptPath = path.join(GetDataPath(), "lua", "gameInfo.lua");
+        cl("Executing dfhack-run... " + luaScriptPath);
+        let args = ["lua", "-f", luaScriptPath, (config.ignoredItems || []).join(",")];
 
         fs.access(dfhackPath, fs.constants.F_OK | fs.constants.X_OK, (err) => {
             if (err) {
@@ -624,8 +589,7 @@ ipcMain.handle("GetGameInfos", async (e) => {
                 return;
             }
 
-            execFile(dfhackPath, args, async (error, stdout, stderr) => {
-                await pause(200);
+            execFile(dfhackPath, args, (error, stdout, _stderr) => {
                 if (error) {
                     data = {
                         error: {
@@ -705,19 +669,10 @@ ipcMain.handle("GetJobsInfos", async () => {
         }
         let dfhackPath = path.join(config.dwarfPath, DFHackRunName());
 
-        //read template
         let luaScriptPath = path.join(GetDataPath(), "lua", "jobInfos.lua");
-        let luaScriptContent = fs.readFileSync(luaScriptPath, "utf-8");
-        luaScriptContent = luaScriptContent.replace("69420;", jobsInfosStartIndex + ";");
-        luaScriptContent = luaScriptContent.replace("69421;", jobsInfosMaxScans + ";");
-
-        //write used model
-        luaScriptPath = path.join(GetDataPath(), "lua", "jobInfos_use.lua");
-        fs.writeFileSync(luaScriptPath, luaScriptContent, "utf-8");
-
         cl("Executing dfhack-run... " + luaScriptPath);
         cl("> Getting job infos from index " + jobsInfosStartIndex);
-        let args = ["lua", "-f", luaScriptPath];
+        let args = ["lua", "-f", luaScriptPath, String(jobsInfosStartIndex), String(jobsInfosMaxScans)];
 
         fs.access(dfhackPath, fs.constants.F_OK | fs.constants.X_OK, (err) => {
             if (err) {
@@ -725,7 +680,7 @@ ipcMain.handle("GetJobsInfos", async () => {
                 return;
             }
 
-            execFile(dfhackPath, args, async (error, stdout, stderr) => {
+            execFile(dfhackPath, args, (error, stdout, _stderr) => {
                 if (error) {
                     data = {
                         error: {
@@ -757,6 +712,10 @@ ipcMain.handle("GetJobsInfos", async () => {
                     data = data.replace(/,]/g, "]");
 
                     data = JSON.parse(data);
+
+                    // Write to database on every successful DFHack response
+                    InsertJobInfos(data).catch(err => console.error("DB write error (job_infos):", err));
+
                     if (data.jobs.length == 0 && data.completed == false) {
                         data = {
                             error: {
@@ -771,9 +730,6 @@ ipcMain.handle("GetJobsInfos", async () => {
                         return;
                     }
                     jobsInfosStartIndex = data.pauseAtIndex;
-                    
-                    // Write to database if successful
-                    InsertJobInfos(data).catch(err => console.error("DB write error (job_infos):", err));
                     
                     resolve(data);
 
@@ -808,17 +764,9 @@ ipcMain.handle("GetStocks", async () => {
         }
         let dfhackPath = path.join(config.dwarfPath, DFHackRunName());
 
-        //read template
         let luaScriptPath = path.join(GetDataPath(), "lua", "exportStocks.lua");
-        let luaScriptContent = fs.readFileSync(luaScriptPath, "utf-8");
-        luaScriptContent = luaScriptContent.replace("69420;", stocksReaderStartIndex + ";");
-        luaScriptContent = luaScriptContent.replace("69421;", stocksReaderMaxScans + ";");
-        //write used model
-        luaScriptPath = path.join(GetDataPath(), "lua", "exportStocks_temp.lua");
-        fs.writeFileSync(luaScriptPath, luaScriptContent, "utf-8");
+        let args = ["lua", "-f", luaScriptPath, String(stocksReaderStartIndex), String(stocksReaderMaxScans)];
 
-        let args = ["lua", "-f", luaScriptPath];
-        
         LogProcessSpawn("exportStocks.lua", "GetStocks");
 
         fs.access(dfhackPath, fs.constants.F_OK | fs.constants.X_OK, (err) => {
@@ -827,7 +775,7 @@ ipcMain.handle("GetStocks", async () => {
                 return;
             }
 
-            execFile(dfhackPath, args, async (error, stdout, stderr) => {
+            execFile(dfhackPath, args, (error, stdout, _stderr) => {
                 if (error) {
                     data = {
                         error: {
@@ -856,6 +804,10 @@ ipcMain.handle("GetStocks", async () => {
                     }
                     
                     let data = ProcessStockData(rawData)
+
+                    // Write to database on every successful DFHack response
+                    InsertStocks(data).catch(err => console.error("DB write error (stocks):", err));
+
                     if (Object.keys(data.stocks).length == 0) {
                         data = {
                             error: {
@@ -870,9 +822,6 @@ ipcMain.handle("GetStocks", async () => {
                         resolve(data);
                         return;
                     }
-                    
-                    // Write to database if successful
-                    InsertStocks(data).catch(err => console.error("DB write error (stocks):", err));
                     
                     resolve(data);
 
@@ -1060,9 +1009,6 @@ ipcMain.handle("GetSetConfig", async (e, newConfig) => {
     await ReadConfig();
 
     if (newConfig != null) {
-        if (config.ignoredItems && newConfig.ignoredItems && config.ignoredItems.toString() != newConfig.ignoredItems.toString())
-            gameInfoLuaUpdated = false;
-
         config = newConfig;
         await SaveConfig();
     }
@@ -1225,11 +1171,6 @@ function ProcessStockData(rawData) {
 
     var response = { completed: completed, yearTick: yearTick, year: year, nextIndex: stocksReaderStartIndex, batchSize: stocksReaderMaxScans, stocks: stocks };
     return response;
-}
-
-
-async function pause(milliseconds) {
-    return new Promise(resolve => setTimeout(resolve, milliseconds));
 }
 
 
