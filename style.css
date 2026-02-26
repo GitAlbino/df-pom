@@ -1934,7 +1934,7 @@ body {
                                 }
 
                                 &.forceShow {
-                                    display: block !important;
+                                    display: flex !important;
                                 }
 
                                 &.editable {

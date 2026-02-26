@@ -4389,6 +4389,62 @@ function CompleteJobInfos(job) {
                 return;
             }
 
+            if (jtn == "MakeGloves") {
+                if (jn.endsWith("gloves")) {
+                    newOut.item = gm.items["GLOVES!ITEM_GLOVES_GLOVES"];
+                } else if (jn.endsWith("mittens")) {
+                    newOut.item = gm.items["GLOVES!ITEM_GLOVES_MITTENS"];
+                } else if (jn.endsWith("gauntlets")) {
+                    newOut.item = gm.items["GLOVES!ITEM_GLOVES_GAUNTLETS"];
+                }
+                return;
+            }
+
+            if (jtn == "MakeArmor") {
+                if (jn.endsWith("breastplate")) {
+                    newOut.item = gm.items["ARMOR!ITEM_ARMOR_BREASTPLATE"];
+                } else if (jn.endsWith("cape")) {
+                    newOut.item = gm.items["ARMOR!ITEM_ARMOR_CAPE"];
+                } else if (jn.endsWith("cloak")) {
+                    newOut.item = gm.items["ARMOR!ITEM_ARMOR_CLOAK"];
+                } else if (jn.endsWith("coat")) {
+                    newOut.item = gm.items["ARMOR!ITEM_ARMOR_COAT"];
+                } else if (jn.endsWith("dress")) {
+                    newOut.item = gm.items["ARMOR!ITEM_ARMOR_DRESS"];
+                } else if (jn.endsWith("leather")) {
+                    newOut.item = gm.items["ARMOR!ITEM_ARMOR_LEATHER"];
+                } else if (jn.endsWith("mail shirt")) {
+                    newOut.item = gm.items["ARMOR!ITEM_ARMOR_MAIL_SHIRT"];
+                } else if (jn.endsWith("robe")) {
+                    newOut.item = gm.items["ARMOR!ITEM_ARMOR_ROBE"];
+                } else if (jn.endsWith("shirt")) {
+                    newOut.item = gm.items["ARMOR!ITEM_ARMOR_SHIRT"];
+                } else if (jn.endsWith("toga")) {
+                    newOut.item = gm.items["ARMOR!ITEM_ARMOR_TOGA"];
+                } else if (jn.endsWith("tunic")) {
+                    newOut.item = gm.items["ARMOR!ITEM_ARMOR_TUNIC"];
+                } else if (jn.endsWith("vest")) {
+                    newOut.item = gm.items["ARMOR!ITEM_ARMOR_VEST"];
+                }
+            }
+
+            if (jtn == "MakeShoes") {
+                if (jn.endsWith("high boots")) {
+                    newOut.item = gm.items["SHOES!ITEM_SHOES_BOOTS"];
+                } else if (jn.endsWith("shoes")) {
+                    newOut.item = gm.items["SHOES!ITEM_SHOES_SHOES"];
+                } else if (jn.endsWith("socks")) {
+                    newOut.item = gm.items["SHOES!ITEM_SHOES_SOCKS"];
+                } else if (jn.endsWith("sandals")) {
+                    newOut.item = gm.items["SHOES!ITEM_SHOES_SANDAL"];
+                } else if (jn.endsWith("chausse")) {
+                    newOut.item = gm.items["SHOES!ITEM_SHOES_CHAUSSE"];
+                } else if (jn.endsWith("low boots")) {
+                    newOut.item = gm.items["SHOES!ITEM_SHOES_BOOTS_LOW"];
+                }
+            }
+
+
             if (jtn == "MakeCheese") {
                 newOut.item = gm.items["MakeCheese"];
                 newIn.flags = ["unrotten", "milk"];
@@ -5736,7 +5792,7 @@ function GetOrderProducedItem(order) {
 
     var job = GetJobFromOrder(order);
     if (!job) {
-        cl("GetOrderProducedItem: could not find job for order id " + order.id);
+        Trace("GetOrderProducedItem: could not find job for order id " + order.id);
         return null;
     }
 
@@ -5886,7 +5942,7 @@ function GetItemSimpleName(item) {
 
 function GetItemTypeAndSubName(item) {
     if (item == undefined)
-        return ""; 
+        return "";
 
     var key = item.typeName ? item.typeName + "!" + item.subtypeName : item.subtypeName;
     if (item.isTypeOnly)
@@ -6252,5 +6308,5 @@ window.api.UpdateAvailable(() => {
 });
 
 async function ResetPath() {
-     result = await window.api.SetDFHackPath();
+    result = await window.api.SetDFHackPath();
 }
