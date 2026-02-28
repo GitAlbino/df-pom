@@ -4389,6 +4389,22 @@ function CompleteJobInfos(job) {
                 return;
             }
 
+            if (jtn == "MakePants") {
+
+                var info = pantsInfos[jn];
+                if (info) {
+                    newOut.item = gm.items[info.item];
+                    if (info.material != "") {
+                        newIn.material = info.material;
+                    } else {
+                        newIn.material_category = [info.material_category];
+                        job.material_category = [info.material_category];
+                    }
+                    return;
+                }
+                cl("Unknown pants job name: " + jn);
+            }
+
             if (jtn == "MakeGloves") {
                 if (jn.endsWith("gloves")) {
                     newOut.item = gm.items["GLOVES!ITEM_GLOVES_GLOVES"];
@@ -4409,6 +4425,8 @@ function CompleteJobInfos(job) {
                     newOut.item = gm.items["ARMOR!ITEM_ARMOR_CLOAK"];
                 } else if (jn.endsWith("coat")) {
                     newOut.item = gm.items["ARMOR!ITEM_ARMOR_COAT"];
+                } else if (jn.endsWith("robe")) {
+                    newOut.item = gm.items["ARMOR!ITEM_ARMOR_DRESS"];
                 } else if (jn.endsWith("dress")) {
                     newOut.item = gm.items["ARMOR!ITEM_ARMOR_DRESS"];
                 } else if (jn.endsWith("leather")) {
@@ -6084,6 +6102,7 @@ function CreateGraph(key, maxValue = null) {
                 input.classList.add("inputNumber", "graphScale");
                 input.addEventListener("keyup", (e) => { SetGraphMax(key, e.target.value); });
                 input.addEventListener("change", (e) => { SetGraphMax(key, e.target.value); });
+                input.addEventListener("mousedown", (e) => { setTimeout(() => { e.target.select(); }, 25); });
                 input.setAttribute("title", "Set the maximum value of the graph. If the stock values exceed this value, the graph will display a dashed line.");
             }
         }

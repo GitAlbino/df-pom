@@ -31,9 +31,6 @@ end
 
 local completed = i < (startJobIndex + maxJobs) and i > 0;
 output = output .. '],\"pauseAtIndex\":' .. tostring(i) .. ', \"completed\":' .. tostring(completed) .. '}'; 
+
 print("DFPOM_JOBINFOS_JSON:" .. output)
--- Safely attempt clipboard write (may fail on some DFHack versions)
-if dfhack.internal and dfhack.internal.setClipboardTextCp437 then
-	dfhack.internal.setClipboardTextCp437(output)
-end
 

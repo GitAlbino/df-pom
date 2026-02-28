@@ -1,4 +1,4 @@
-local startIndex = 0;
+local startIndex = 15000;
 local maxScans = 5000;
 local counts = {}
 local listFields = false
@@ -26,6 +26,10 @@ for _, item in ipairs(df.global.world.items.other.IN_PLAY) do
 
 	maxScans = maxScans - 1
 	if item.flags.in_building then 
+		goto continue
+	end
+
+	if item.flags.construction then 
 		goto continue
 	end
 
@@ -80,8 +84,3 @@ for key, value in pairs(counts) do
 end
 
 print("DFPOM_STOCKS:" .. output)
--- Safely attempt clipboard write (may fail on some DFHack versions)
-if dfhack.internal and dfhack.internal.setClipboardTextCp437 then
-	dfhack.internal.setClipboardTextCp437(output)
-end
-collectgarbage()
