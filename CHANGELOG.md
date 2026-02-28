@@ -57,8 +57,9 @@
 
 ## [0.4.0] - 2026-02-28
 - Dropped clipboard usage for data transfer (thx KantorFitz)
-- Added VS debug attach script (thx KantorFitz)
+- Stocks history is now saved to restore graphs on startup (idea of KantorFitz)
 - Fixed not being able to set production targets in stocks when a filter was active
 - Fixed many order detections for cloth related jobs
 - Improved keyboard input on graph scale field
+- (dev) Added VS debug attach script (thx KantorFitz)
 

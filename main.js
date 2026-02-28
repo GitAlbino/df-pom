@@ -5,14 +5,17 @@ const path = require("path");
 const fs = require("fs");
 const { runInThisContext } = require("vm");
 const CONFIG_NAME = "dfpom-config.json";
+const STOCKS_NAME = "dfpom-stocks.json";
 const ORDERS_NAME = "dfpom-orders.json";
 const CONFIG_PATH = path.join(app.getPath("userData"), CONFIG_NAME);
+const STOCKS_PATH = path.join(app.getPath("userData"), STOCKS_NAME);
 const { execFile, exec } = require('node:child_process');
 const { ref } = require("node:process");
 const { resolve } = require("node:dns");
 
 let nodePty = null;
 let config = {};
+let oldStocks = {};
 var mainWindow;
 var saveWindowsPosTimeout = null;
 var stocksReaderStartIndex = 0;
@@ -235,9 +238,8 @@ app.whenReady().then(async () => {
 			autoUpdater.checkForUpdates();
 		}
 	});
-
-
 })
+
 
 async function PrepareFiles() {
 	// On Linux, ensure the Lua scripts are in a tmp folder to avoid permission issues with /tmp/.X11-unix
@@ -291,6 +293,7 @@ function CreateConfigFile() {
 	config.ordersFilePath = "";
 	config.dwarfPath = "";
 	config.autoUpdate = true;
+	config.graphsSaveData = true;
 	config.graphsDefaultAutoHeight = true;
 	config.favoriteStockItems = [
 		"BED",
@@ -909,6 +912,43 @@ async function SendToDF() {
 	}
 }
 
+
+ipcMain.handle("ReadStocksArchive", async () => {
+	await ReadStocksArchive();
+	return oldStocks;
+});
+
+async function ReadStocksArchive() {
+	oldStocks = {};
+	if (fs.existsSync(STOCKS_PATH)) {
+		cl("Reading stocks archive...");
+		const stocksData = fs.readFileSync(STOCKS_PATH, "utf-8");
+		try {
+			oldStocks = JSON.parse(stocksData);
+		} catch (e) {
+			cl("Error parsing stocks archive: " + e);
+		}
+	}
+	return oldStocks;
+}
+
+
+ipcMain.handle("SaveStocksArchive", async (e, stocksHistory) => {
+	await SaveStocksArchive(stocksHistory);
+});
+
+async function SaveStocksArchive(stocksHistory) {
+	try {
+		fs.writeFileSync(STOCKS_PATH, JSON.stringify(stocksHistory));
+		oldStocks = stocksHistory;
+	} catch (e) {
+		cl("Error writing stocks archive: " + e);
+	}
+}
+
+
+
+
 ipcMain.handle("GetSetConfig", async (e, newConfig) => {
 	await ReadConfig();
 
@@ -972,11 +1012,18 @@ async function CreateWindow() {
 
 	mainWindow.loadFile('index.html')
 
-
+	/*
 	mainWindow.on('new-window', function (e, url) {
 		e.preventDefault();
 		cl(url);
 		shell.openExternal(url);
+	});
+	*/
+
+	mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+		cl(url);
+		shell.openExternal(url);
+		return { action: 'deny' };
 	});
 
 	mainWindow.on("move", () => {

@@ -241,6 +241,9 @@ async function InitData() {
         ClearToast(initToast);
     }
 
+    if (config.graphsSaveData)
+        stocksHistory = await window.api.ReadStocksArchive();
+    
     RedrawGraphs();
     await DataAutoUpdater();
 
@@ -2601,6 +2604,7 @@ async function ReadStocksBatch() {
         }
         FinalizeStocksData();
         FillStocksTable();
+
         return true;
     }
 
@@ -2706,6 +2710,10 @@ function FinalizeStocksData() {
             });
         });
         nextGraphSave = gm.totalTicks + graphRate;
+
+        if (config.graphsSaveData)
+            window.api.SaveStocksArchive(stocksHistory);
+
         RedrawGraphs();
     }
 

@@ -359,6 +359,13 @@
 					</div>
 					<h2>Graphs</h2>
 					<div class="setting">
+						<p>Save graph data</p>
+						<div>
+							<input type="checkbox" id="config_graphsSaveData" onchange="SaveSetting('graphsSaveData',this.checked)" />
+							<span>Save stocks data history on disk when quitting to restore on next launch</span>
+						</div>
+					</div>
+					<div class="setting">
 						<p>Graph Default Max Value</p>
 						<div>
 							<input type="number" id="config_defaultGraphMax" onchange="SaveSetting('defaultGraphMax',this.value)" />
