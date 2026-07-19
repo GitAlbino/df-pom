@@ -33,7 +33,7 @@ function pause(ms) {
 var missingDFHackError = {
 	error: {
 		title: "DFHack required",
-		msg: "This app requires access to DFHack / 'dfhack-run'.",
+		msg: "This app requires the presence of DFHack in your dwarf fortress folder: [dwarf fortress path]/hack/dfhack-run.exe",
 		context: "GetGameStatus1",
 		buttons: ["SET DFHACK PATH"]
 	}
@@ -49,7 +49,7 @@ process.on('SIGINT', () => { CleanupOnExit(0); });
 app.on('before-quit', (e) => { CleanupOnExit(0); });
 
 function DFHackRunName() {
-	return process.platform === 'win32' ? 'dfhack-run.exe' : 'dfhack-run';
+	return process.platform === 'win32' ? 'hack/dfhack-run.exe' : 'hack/dfhack-run';
 }
 
 function GetChildEnv() {
@@ -978,7 +978,7 @@ function GetPathsReadyError() {
 
 	requiredFile = path.join(config.dwarfPath, DFHackRunName());
 	if (!fs.existsSync(requiredFile)) {
-		cl(DFHackRunName() + " not found in " + config.dwarfPath);
+		cl(DFHackRunName() + " not found in " + config.dwarfPath + "/hack/");
 		return GetMissingDFHackError("Paths2 (missing '" + DFHackRunName() + "' in " + config.dwarfPath + ")");
 	}
 

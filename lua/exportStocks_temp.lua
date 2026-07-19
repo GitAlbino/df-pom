@@ -1,4 +1,4 @@
-local startIndex = 5000;
+local startIndex = 0;
 local maxScans = 5000;
 local counts = {}
 local listFields = false

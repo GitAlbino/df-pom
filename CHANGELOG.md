@@ -63,3 +63,5 @@
 - Improved keyboard input on graph scale field
 - (dev) Added VS debug attach script (thx KantorFitz)
 
+## [0.5.0] - 2026-07-19
+- Updated to work with DF ver 53.15
