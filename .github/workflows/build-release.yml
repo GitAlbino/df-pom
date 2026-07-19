@@ -19,7 +19,7 @@ jobs:
     strategy:
       matrix:
         include:
-          - os: windows-latest
+          - os: windows-2022
             platform: win32
             artifact-name: windows_x64
           - os: ubuntu-latest
