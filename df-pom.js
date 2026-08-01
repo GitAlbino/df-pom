@@ -4067,6 +4067,15 @@ function PopInfo(title, message, sub, buttons = null, closeCallback = null, wait
                     });
                     break;
 
+                case "SET DWARF FORTRESS PATH":
+                    Trace("Resetting paths.");
+                    button.addEventListener("click", async (e) => {
+                        e.stopPropagation();
+                        result = await window.api.SetDwarfFortressPath();
+                        GetConfig();
+                    });
+                    break;
+
                 default:
                     button.addEventListener("click", (e) => {
                         const callback = closeCallback;
@@ -6336,4 +6345,5 @@ window.api.UpdateAvailable(() => {
 
 async function ResetPath() {
     result = await window.api.SetDFHackPath();
+    result = await window.api.SetDwarfFortressPath();
 }

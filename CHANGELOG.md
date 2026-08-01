@@ -65,3 +65,6 @@
 
 ## [0.5.0] - 2026-07-19
 - Updated to work with DF ver 53.15
+
+## [0.5.1] - 2026-08-01
+- Fixed another pathing error

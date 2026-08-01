@@ -33,9 +33,17 @@ function pause(ms) {
 var missingDFHackError = {
 	error: {
 		title: "DFHack required",
-		msg: "This app requires the presence of DFHack in your dwarf fortress folder: [dwarf fortress path]/hack/dfhack-run.exe",
+		msg: "Please point to your DFHack fortress folder (ex: 'C:\\Program Files (x86)\\Steam\\steamapps\\common\\DFHack\\')",
 		context: "GetGameStatus1",
 		buttons: ["SET DFHACK PATH"]
+	}
+};
+var missingDFError = {
+	error: {
+		title: "Dwarf Fortress required",
+		msg: "Please point to your Dwarf Fortress fortress folder (ex: 'C:\\Program Files (x86)\\Steam\\steamapps\\common\\Dwarf Fortress\\')",
+		context: "GetGameStatus1",
+		buttons: ["SET DWARF FORTRESS PATH"]
 	}
 };
 
@@ -90,8 +98,28 @@ function shellEscape(s) {
 	return "'" + String(s).replace(/'/g, "'\\''") + "'";
 }
 
-function ExecDFHack(dfhackPath, args, options, callback) {
+function ExecDFHack(args, callback) {
 	// On Linux, try node-pty for PTY support
+
+	console.log("ExecDFHack: " + args.join(" "));
+
+	const dfhackPath = path.join(config.dfhackPath, DFHackRunName());
+	const workingDir = path.dirname(dfhackPath);
+	const options = { cwd: workingDir, env: GetChildEnv() };
+
+	if (!fs.existsSync(dfhackPath)) {
+		const err = new Error("DFHack executable not found at: " + dfhackPath);
+		err.code = "ENOENT";
+		callback(err, "", "");
+		return;
+	}
+
+	if (!fs.existsSync(workingDir)) {
+		const err = new Error("DFHack working directory not found at: " + workingDir);
+		err.code = "ENOENT";
+		callback(err, "", "");
+		return;
+	}
 	if (process.platform === 'linux') {
 		if (!nodePty) {
 			try {
@@ -126,6 +154,7 @@ function ExecDFHack(dfhackPath, args, options, callback) {
 	}
 	// Fallback: direct execFile
 	try {
+		console.log("Executing dfhack-run: " + dfhackPath + " " + args.join(" ") + " in " + options.cwd);
 		execFile(dfhackPath, args, options, (error, stdout, stderr) => {
 			callback(error, stdout, stderr);
 		});
@@ -291,7 +320,7 @@ function CreateConfigFile() {
 	cl("/!\\ Creating default config file /!\\");
 	config = {};
 	config.ordersFilePath = "";
-	config.dwarfPath = "";
+	config.dfhackPath = "";
 	config.autoUpdate = true;
 	config.graphsSaveData = true;
 	config.graphsDefaultAutoHeight = true;
@@ -336,13 +365,44 @@ ipcMain.handle("OpenLink", (e, link) => {
 
 ipcMain.handle("SetDFHackPath", async () => {
 	return new Promise(async (resolve, reject) => {
-		resolve(await SetPath());
+		resolve(await SetDFHackPath());
 	});
 });
 
-async function SetPath() {
+ipcMain.handle("SetDwarfFortressPath", async () => {
+	return new Promise(async (resolve, reject) => {
+		resolve(await SetDwarfFortressPath());
+	});
+});
+
+async function SetDFHackPath() {
 	const { canceled, filePaths } = await dialog.showOpenDialog({
-		title: "Select Dwarf Fortress folder (must contain " + DFHackRunName() + ")",
+		title: "Select DFHack folder (must contain " + DFHackRunName() + ")",
+		properties: ["openDirectory"]
+	});
+
+	if (canceled || filePaths.length == 0)
+		return false;
+
+	config.dfhackPath = canceled ? null : filePaths[0];
+	config.ordersFilePath = path.join(config.dfhackPath, "dfhack-config", "orders", ORDERS_NAME);
+
+	cl("Selected DFHack path: " + filePaths[0]);
+	var pathError = GetPathsReadyError();
+	if (pathError) {
+		cl(pathError);
+		resolve(pathError);
+		return;
+	}
+
+	await SaveConfig();
+	return true;
+}
+
+
+async function SetDwarfFortressPath() {
+	const { canceled, filePaths } = await dialog.showOpenDialog({
+		title: "Select Dwarf Fortress folder",
 		properties: ["openDirectory"]
 	});
 
@@ -350,9 +410,8 @@ async function SetPath() {
 		return false;
 
 	config.dwarfPath = canceled ? null : filePaths[0];
-	config.ordersFilePath = path.join(config.dwarfPath, "dfhack-config", "orders", ORDERS_NAME);
 
-	cl("Selected DFHack path: " + filePaths[0]);
+	cl("Selected Dwarf Fortress path: " + filePaths[0]);
 	var pathError = GetPathsReadyError();
 	if (pathError) {
 		cl(pathError);
@@ -395,10 +454,11 @@ ipcMain.handle("GetGameStatus", async (e) => {
 			return;
 		}
 
-		let dfhackPath = path.join(config.dwarfPath, DFHackRunName());
+		config.dfhackPath ??= "";
+		let dfhackPath = path.join(config.dfhackPath, DFHackRunName());
 
 
-		let luaScriptPath = path.join(GetLuaDataPath("gameStatus.lua"));
+		let luaScriptPath = GetLuaDataPath("gameStatus.lua");
 		let args = ["lua", "-f", luaScriptPath];
 
 		fs.access(dfhackPath, fs.constants.F_OK | fs.constants.X_OK, (err) => {
@@ -407,19 +467,20 @@ ipcMain.handle("GetGameStatus", async (e) => {
 				return;
 			}
 
-			ExecDFHack(dfhackPath, args, { cwd: config.dwarfPath, env: GetChildEnv() }, async (error, stdout, stderr) => {
+			ExecDFHack(args, async (error, stdout, stderr) => {
 				await pause(200);
 
 				let data = null;
 
 				if (error || !stdout || !stdout.includes("DFPOM_STATUS_JSON:")) {
+					var errorString = error ? error.toString() : "Unknown error";
 					data = {
 						error: {
 							title: "Waiting for Dwarf Fortress...",
 							msg: "Please start the game and load a Fortress.",
 							context: "GetGameStatus2 code:" + (error.code || '') + " signal:" + (error.signal || ''),
 							buttons: ["WAIT"],
-							errorObj: { error: error, stdout: stdout, stderr: stderr }
+							errorObj: { error: errorString, stdout: stdout, stderr: stderr }
 						}
 					};
 					cl(data);
@@ -478,25 +539,25 @@ ipcMain.handle("GetGameInfos", async (e) => {
 			resolve(pathError);
 			return;
 		}
-		let dfhackPath = path.join(config.dwarfPath, DFHackRunName());
+		let dfhackPath = path.join(config.dfhackPath, DFHackRunName());
 
-		let luaScriptUsePath = path.join(GetLuaDataPath("gameInfo_use.lua"));
+		let luaScriptPath = GetLuaDataPath("gameInfo_use.lua");
 		if (!gameInfoLuaUpdated) {
 			//read template, prepare used model
-			let luaScriptPath = path.join(GetLuaDataPath("gameInfo.lua"));
+			let luaScriptPath = GetLuaDataPath("gameInfo.lua");
 
 			let luaScriptContent = fs.readFileSync(luaScriptPath, "utf-8");
 			if (!config.ignoredItems)
 				config.ignoredItems = [];
 			luaScriptContent = luaScriptContent.replace("'IGNORED_ITEMS_LIST'", `'` + config.ignoredItems.join(`','`) + `'`);
-			fs.writeFileSync(luaScriptUsePath, luaScriptContent, "utf-8");
+			fs.writeFileSync(luaScriptPath, luaScriptContent, "utf-8");
 			gameInfoLuaUpdated = true;
 		}
 
 		//write used model
 
-		cl("Executing dfhack-run... " + luaScriptUsePath);
-		let args = ["lua", "-f", luaScriptUsePath];
+		cl("Executing dfhack-run... " + luaScriptPath);
+		let args = ["lua", "-f", luaScriptPath];
 
 		fs.access(dfhackPath, fs.constants.F_OK | fs.constants.X_OK, (err) => {
 			if (err) {
@@ -504,7 +565,7 @@ ipcMain.handle("GetGameInfos", async (e) => {
 				return;
 			}
 
-			ExecDFHack(dfhackPath, args, { cwd: config.dwarfPath, env: GetChildEnv() }, async (error, stdout, stderr) => {
+			ExecDFHack(args, async (error, stdout, stderr) => {
 				await pause(200);
 
 				let data = null;
@@ -575,16 +636,16 @@ ipcMain.handle("GetJobsInfos", async () => {
 			resolve(pathError);
 			return;
 		}
-		let dfhackPath = path.join(config.dwarfPath, DFHackRunName());
+		let dfhackPath = path.join(config.dfhackPath, DFHackRunName());
 
 		//read template
-		let luaScriptPath = path.join(GetLuaDataPath("jobInfos.lua"));
+		let luaScriptPath = GetLuaDataPath("jobInfos.lua");
 		let luaScriptContent = fs.readFileSync(luaScriptPath, "utf-8");
 		luaScriptContent = luaScriptContent.replace("69420;", jobsInfosStartIndex + ";");
 		luaScriptContent = luaScriptContent.replace("69421;", jobsInfosMaxScans + ";");
 
 		//write used model
-		luaScriptPath = path.join(GetLuaDataPath("jobInfos_use.lua"));
+		luaScriptPath = GetLuaDataPath("jobInfos_use.lua");
 		fs.writeFileSync(luaScriptPath, luaScriptContent, "utf-8");
 
 		cl("Executing dfhack-run... " + luaScriptPath);
@@ -597,7 +658,7 @@ ipcMain.handle("GetJobsInfos", async () => {
 				return;
 			}
 
-			ExecDFHack(dfhackPath, args, { cwd: config.dwarfPath, env: GetChildEnv() }, async (error, stdout, stderr) => {
+			ExecDFHack(args, async (error, stdout, stderr) => {
 				await pause(50);
 
 				let data = null;
@@ -677,15 +738,15 @@ ipcMain.handle("GetStocks", async () => {
 			resolve(pathError);
 			return;
 		}
-		let dfhackPath = path.join(config.dwarfPath, DFHackRunName());
+		let dfhackPath = path.join(config.dfhackPath, DFHackRunName());
 
 		//read template
-		let luaScriptPath = path.join(GetLuaDataPath("exportStocks.lua"));
+		let luaScriptPath = GetLuaDataPath("exportStocks.lua");
 		let luaScriptContent = fs.readFileSync(luaScriptPath, "utf-8");
 		luaScriptContent = luaScriptContent.replace("69420;", stocksReaderStartIndex + ";");
 		luaScriptContent = luaScriptContent.replace("69421;", stocksReaderMaxScans + ";");
 		//write used model
-		luaScriptPath = path.join(GetLuaDataPath("exportStocks_temp.lua"));
+		luaScriptPath = GetLuaDataPath("exportStocks_temp.lua");
 		fs.writeFileSync(luaScriptPath, luaScriptContent, "utf-8");
 
 		let args = ["lua", "-f", luaScriptPath];
@@ -696,7 +757,7 @@ ipcMain.handle("GetStocks", async () => {
 				return;
 			}
 
-			ExecDFHack(dfhackPath, args, { cwd: config.dwarfPath, env: GetChildEnv() }, async (error, stdout, stderr) => {
+			ExecDFHack(args, async (error, stdout, stderr) => {
 				await pause(50);
 
 				let rawData = null;
@@ -783,7 +844,7 @@ ipcMain.handle("ReadOrdersFile", async () => {
 			resolve(pathError);
 			return;
 		}
-		let dfhackPath = path.join(config.dwarfPath, DFHackRunName());
+		let dfhackPath = path.join(config.dfhackPath, DFHackRunName());
 		let filename = path.basename(config.ordersFilePath, '.json');
 		let args = ["orders", "export", filename];
 
@@ -794,7 +855,7 @@ ipcMain.handle("ReadOrdersFile", async () => {
 				return;
 			}
 
-			ExecDFHack(dfhackPath, args, { cwd: config.dwarfPath, env: GetChildEnv() }, (error) => {
+			ExecDFHack(args, (error) => {
 				if (error) {
 					data = {
 						error: {
@@ -855,7 +916,7 @@ async function SendToDF() {
 		return pathError;
 	}
 
-	let dfhackPath = path.join(config.dwarfPath, DFHackRunName());
+	let dfhackPath = path.join(config.dfhackPath, DFHackRunName());
 	let filename = path.basename(config.ordersFilePath, '.json');
 	let args1 = ["orders", "clear"];
 	let args2 = ["orders", "import", filename + "_out"];
@@ -868,7 +929,7 @@ async function SendToDF() {
 			}
 
 			//clear orders command
-			ExecDFHack(dfhackPath, args1, { cwd: config.dwarfPath, env: GetChildEnv() }, (error) => {
+			ExecDFHack(args1, (error) => {
 				if (error) {
 					data = {
 						error: {
@@ -885,7 +946,7 @@ async function SendToDF() {
 				}
 
 				//import orders command
-				ExecDFHack(dfhackPath, args2, { cwd: config.dwarfPath, env: GetChildEnv() }, (error) => {
+				ExecDFHack(args2, (error) => {
 					if (error) {
 						data = {
 							error: {
@@ -965,21 +1026,21 @@ ipcMain.handle("GetSetConfig", async (e, newConfig) => {
 
 
 function GetPathsReadyError() {
-	if (!config.dwarfPath || config.dwarfPath.length == 0)
+	if (!config.dfhackPath || config.dfhackPath.length == 0)
 		return false;
 
 	var data = null;
 
 	var requiredFile = path.join(config.dwarfPath, DwarfFortressExeName());
 	if (!fs.existsSync(requiredFile)) {
-		cl(DwarfFortressExeName() + " not found in " + config.dwarfPath);
-		return GetMissingDFHackError("Paths1 (missing '" + DwarfFortressExeName() + "' in " + config.dwarfPath + ")");
+		cl("(A) " + DwarfFortressExeName() + " not found in " + requiredFile);
+		return GetMissingDFHackError("Paths1 (missing '" + DwarfFortressExeName() + "' at " + requiredFile + ")");
 	}
 
-	requiredFile = path.join(config.dwarfPath, DFHackRunName());
+	requiredFile = path.join(config.dfhackPath, DFHackRunName());
 	if (!fs.existsSync(requiredFile)) {
-		cl(DFHackRunName() + " not found in " + config.dwarfPath + "/hack/");
-		return GetMissingDFHackError("Paths2 (missing '" + DFHackRunName() + "' in " + config.dwarfPath + ")");
+		cl("(B) " + DFHackRunName() + " not found in " + requiredFile);
+		return GetMissingDFHackError("Paths2 (missing '" + DFHackRunName() + "' at " + requiredFile + ")");
 	}
 
 	return null;

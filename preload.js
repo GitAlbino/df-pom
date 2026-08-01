@@ -11,6 +11,7 @@ contextBridge.exposeInMainWorld("api", {
     GetGameStatus: () => ipcRenderer.invoke("GetGameStatus"),
     ResetApp: () => ipcRenderer.invoke("ResetApp"),
     SetDFHackPath: () => ipcRenderer.invoke("SetDFHackPath"),
+    SetDwarfFortressPath: () => ipcRenderer.invoke("SetDwarfFortressPath"),
     OpenLink: (link) => ipcRenderer.invoke("OpenLink", link),
     UpdateAvailable: (handler) => ipcRenderer.on("UpdateAvailable", handler),
     ReadStocksArchive: () => ipcRenderer.invoke("ReadStocksArchive"),
