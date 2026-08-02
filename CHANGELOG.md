@@ -68,3 +68,6 @@
 
 ## [0.5.1] - 2026-08-01
 - Fixed another pathing error
+
+## [0.5.2] - 2026-08-02
+- Fixed job orders not reading/writing
