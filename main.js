@@ -101,8 +101,6 @@ function shellEscape(s) {
 function ExecDFHack(args, callback) {
 	// On Linux, try node-pty for PTY support
 
-	console.log("ExecDFHack: " + args.join(" "));
-
 	const dfhackPath = path.join(config.dfhackPath, DFHackRunName());
 	const workingDir = path.dirname(dfhackPath);
 	const options = { cwd: workingDir, env: GetChildEnv() };
@@ -154,7 +152,6 @@ function ExecDFHack(args, callback) {
 	}
 	// Fallback: direct execFile
 	try {
-		console.log("Executing dfhack-run: " + dfhackPath + " " + args.join(" ") + " in " + options.cwd);
 		execFile(dfhackPath, args, options, (error, stdout, stderr) => {
 			callback(error, stdout, stderr);
 		});
@@ -385,7 +382,8 @@ async function SetDFHackPath() {
 		return false;
 
 	config.dfhackPath = canceled ? null : filePaths[0];
-	config.ordersFilePath = path.join(config.dfhackPath, "dfhack-config", "orders", ORDERS_NAME);
+	cl("Selected Dwarf Fortress path: " + config.dwarfPath);
+	cl("Orders file path set to: " + config.ordersFilePath);
 
 	cl("Selected DFHack path: " + filePaths[0]);
 	var pathError = GetPathsReadyError();
@@ -835,6 +833,7 @@ ipcMain.handle("ReadOrdersFile", async () => {
 		return "wait"
 
 	readingStuff = true;
+	config.ordersFilePath = path.join(config.dwarfPath, "dfhack-config", "orders", ORDERS_NAME);
 
 	cl("Reading orders file...");
 
@@ -897,6 +896,7 @@ ipcMain.handle("ReadOrdersFile", async () => {
 ipcMain.handle("WriteOrdersFile", async (e, content) => {
 	const fs = require("fs").promises;
 	cl("Writing orders file...");
+	config.ordersFilePath = path.join(config.dwarfPath, "dfhack-config", "orders", ORDERS_NAME);
 	var exportPath = config.ordersFilePath.replace(".json", "_out.json");
 	if (config.ordersFilePath) {
 		await fs.writeFile(exportPath, content, "utf-8");
