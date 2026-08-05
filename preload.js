@@ -10,10 +10,11 @@ contextBridge.exposeInMainWorld("api", {
     GetJobsInfos: () => ipcRenderer.invoke("GetJobsInfos"),
     GetGameStatus: () => ipcRenderer.invoke("GetGameStatus"),
     ResetApp: () => ipcRenderer.invoke("ResetApp"),
-    SetDFHackPath: () => ipcRenderer.invoke("SetDFHackPath"),
+    SetDFHackPath: (error) => ipcRenderer.invoke("SetDFHackPath", error),
     SetDwarfFortressPath: () => ipcRenderer.invoke("SetDwarfFortressPath"),
     OpenLink: (link) => ipcRenderer.invoke("OpenLink", link),
     UpdateAvailable: (handler) => ipcRenderer.on("UpdateAvailable", handler),
     ReadStocksArchive: () => ipcRenderer.invoke("ReadStocksArchive"),
+    CheckPaths: () => ipcRenderer.invoke("CheckPaths"),
     SaveStocksArchive: (stocksHistory) => ipcRenderer.invoke("SaveStocksArchive", stocksHistory)
 });

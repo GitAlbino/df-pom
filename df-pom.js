@@ -14,6 +14,7 @@ var mustReadOrders = false;
 var mustWriteOrders = false;
 var mustReadStocks = false;
 var lastError;
+var appSetupOk = false;
 
 var ordersTable;
 var allOrdersPaused = false;
@@ -148,6 +149,7 @@ let materialsGroups = [
 
 var sideA;
 var sideB;
+var waitingForPath;
 
 var cl = console.log
 
@@ -160,13 +162,11 @@ document.addEventListener("mouseover", function (e) {
 });
 
 async function InitDOM() {
-    await GetConfig();
-    $("ver").forEach(el => el.textContent = "v" + config.version);
-    fileHandle = await window.api.GetFileHandle();
+    OnAppStart();
+    CheckPaths();
+}
 
-    if (!(config.toggleTabInventory || config.toggleTabOrders || config.toggleTabJobs || config.toggleTabGraphs))
-        SetTab("inventory");
-
+async function OnAppStart() {
     sideA = $(".inventoryBody .itemsSide")[0];
     sideB = $(".inventoryBody .valuesSide")[0];
     inventoryStaticHeader = $(".inventoryTableHeader")[0];
@@ -184,8 +184,34 @@ async function InitDOM() {
     });
     window.addEventListener("focus", (event) => { ClearKeys() });
     PrepareInput($("input#conditionValue")[0]);
+}
 
+async function CheckPaths() {
+    waitingForPath = true;
+    cl("checking paths...");
+    var pathsReady = await window.api.CheckPaths();
+    if (pathsReady !== true) {
+        cl("Path are not ready");
+        CheckError(pathsReady);
+        return;
+    }
+    cl("Path ready !");
+    $(".infoBox").forEach(pop => pop.remove());
+
+    waitingForPath = false;
+    await OnAppReady();
+}
+
+async function OnAppReady() {
+    cl("App ready");
+    await GetConfig();
     await InitData();
+    fileHandle = await window.api.GetFileHandle();
+    $("ver").forEach(el => el.textContent = "v" + config.version);
+
+    if (!(config.toggleTabInventory || config.toggleTabOrders || config.toggleTabJobs || config.toggleTabGraphs))
+        SetTab("inventory");
+
 }
 
 async function InitData() {
@@ -243,7 +269,7 @@ async function InitData() {
 
     if (config.graphsSaveData)
         stocksHistory = await window.api.ReadStocksArchive();
-    
+
     RedrawGraphs();
     await DataAutoUpdater();
 
@@ -303,6 +329,7 @@ function ResetApp() {
     cl("Resetting app data...");
     Trace("Resetting app data...");
     window.api.ResetApp();
+    /*
     gm = {};
     orders = [];
     stocks = [];
@@ -334,6 +361,7 @@ function ResetApp() {
 
     ClearStockTable();
     InitData();
+    */
 }
 
 function ClearStockTable() {
@@ -444,11 +472,12 @@ function CheckError(data, waitingToken) {
     }
 
     if (data.error != undefined) {
+        cl("Got Error: " + data.error.title + " - " + data.error.msg + " - " + data.error.context);
         setTimeout(() => {
             const d = data.error;
             const cb = errorCallback;
             const wt = waitingToken;
-            PopInfo(d.title, d.msg, d.context, d.buttons, errorCallback, wt, d.icon);
+            PopInfo(d.title, d.msg, d.context, d.buttons, errorCallback, wt, d.icon, false);
         });
         lastError = data.error;
         return true;
@@ -458,6 +487,9 @@ function CheckError(data, waitingToken) {
 }
 
 async function GetGameStatus() {
+    if (!appSetupOk)
+        return;
+
     Trace("Checking game status...");
     gameStatus = await window.api.GetGameStatus();
 
@@ -1978,6 +2010,11 @@ async function SaveConfig() {
 async function CallGetSetConfig(newConfig) {
     config = await window.api.GetSetConfig(newConfig);
 
+    if (CheckError(config, "GetSetConfig"))
+        return false;
+
+    appSetupOk = true;
+
     Object.entries(config).forEach((entry) => {
         let key = entry[0];
         value = entry[1];
@@ -1994,7 +2031,7 @@ async function CallGetSetConfig(newConfig) {
 async function ToggleOption(name, noSwitch = false) {
     name = name.charAt(0).toUpperCase() + name.slice(1);
     name = "toggle" + name;
-
+    cl("toggle option: " + name);
     await GetConfig();
 
     if (!config[name]) {
@@ -2003,7 +2040,7 @@ async function ToggleOption(name, noSwitch = false) {
         config[name] = !config[name];
     }
 
-    if (CheckError(config))
+    if (CheckError(config, "optionToggle"))
         return;
 
 
@@ -2076,6 +2113,7 @@ async function CycleSizeMode(noChange) {
     if (previousSizeMode != undefined)
         $("body")[0].classList.remove("sizemode_" + previousSizeMode);
 
+    cl("Cycling size mode");
     await GetConfig();
     if (!noChange) {
         config.sizeMode++;
@@ -4019,12 +4057,18 @@ function CompareDepth(a, b) {
     }
 }
 
-function PopInfo(title, message, sub, buttons = null, closeCallback = null, waitingToken = "", icon = null) {
+function PopInfo(title, message, sub, buttons = null, closeCallback = null, waitingToken = "", icon = null, isSkipable = true) {
+
+    cl("pop info: " + title + " " + message + " " + sub + " buttons: " + buttons?.join(",") + " waitingToken: " + waitingToken);
+    //log call stack
+    console.trace();
 
     var newPop = title + message + sub + buttons?.join(",");
     if (newPop == lastPopData && document.querySelector(".infoBox") != null)
         return;
     lastPopData = newPop;
+
+    ClosePopInfoWaiting(waitingToken);
 
     var infoBox = document.createElement("div");
     infoBox.classList.add("infoBox");
@@ -4063,7 +4107,9 @@ function PopInfo(title, message, sub, buttons = null, closeCallback = null, wait
                     button.addEventListener("click", async (e) => {
                         e.stopPropagation();
                         result = await window.api.SetDFHackPath();
-                        GetConfig();
+                        console.log("SetDFHackPath result: " + result + " token " + waitingToken);
+                        $(".infoBox").forEach(pop => pop.remove());
+                        await CheckPaths();
                     });
                     break;
 
@@ -4072,7 +4118,9 @@ function PopInfo(title, message, sub, buttons = null, closeCallback = null, wait
                     button.addEventListener("click", async (e) => {
                         e.stopPropagation();
                         result = await window.api.SetDwarfFortressPath();
-                        GetConfig();
+                        console.log("SetDwarfFortressPath result: " + result);
+                        $(".infoBox").forEach(pop => pop.remove());
+                        await CheckPaths();
                     });
                     break;
 
@@ -4090,10 +4138,10 @@ function PopInfo(title, message, sub, buttons = null, closeCallback = null, wait
             infoBox.querySelector(".buttons").appendChild(button);
         });
     }
-
     $("body")[0].appendChild(infoBox);
 
-    if (buttons != null) {
+
+    if (buttons != null && isSkipable) {
         setTimeout(() => {
             infoBox.addEventListener("click", () => {
                 const box = infoBox;
@@ -4111,6 +4159,9 @@ function PopInfoActive() {
 }
 
 function ClosePopInfoWaiting(token) {
+    if (waitingForPath)
+        return;
+
     boxes = document.querySelectorAll(".infoBox[waitingtoken='" + token + "']");
     boxes.forEach(box => {
         box.remove();
@@ -6342,8 +6393,3 @@ function Interpolate(min, max, ratio) {
 window.api.UpdateAvailable(() => {
     $(".updateInfo")[0].classList.remove("hidden");
 });
-
-async function ResetPath() {
-    result = await window.api.SetDFHackPath();
-    result = await window.api.SetDwarfFortressPath();
-}

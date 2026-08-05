@@ -71,3 +71,6 @@
 
 ## [0.5.2] - 2026-08-02
 - Fixed job orders not reading/writing
+
+## [0.5.3] - 2026-08-05
+- Reworked the path checking process (hoping it fixes CrossAlbeo' issue)
